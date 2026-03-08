@@ -1,112 +1,184 @@
-# News Sentiment Based Stock Predictor
+# Distributed News Sentiment Analysis Cluster
 
-Distributed machine learning on Spark cluster for news sentiment analysis and stock prediction using PySpark.
+A Python-based distributed computing system where a master node coordinates sentiment analysis tasks across multiple worker nodes.
 
-## 🤝 Team Collaboration
-
-This project uses a collaborative Git workflow:
-
-- **`main` branch**: Production code (protected, owner only)
-- **`team-dev` branch**: Development branch for all team members
-
-📖 See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed workflow instructions.
-
-## 📁 Project Structure
+## Architecture
 
 ```
-News Sentiment Based Stock Predictor/
-├── cluster/              # Cluster setup files
-│   ├── master.ipynb      # Start Spark master node
-│   ├── worker.ipynb      # Start worker nodes (for teammates)
-│   └── start_master.bat  # Quick start master script
-│
-├── notebooks/            # Analysis notebooks
-│   ├── fetch_data.ipynb  # Fetch news data from GDELT
-│   └── classification.ipynb  # News classification with ML
-│
-└── data/                 # Dataset storage
-    └── gdelt_english_news.csv
+┌─────────────────┐
+│  Master Node    │ (You)
+│  Port: 5000     │
+└────────┬────────┘
+         │
+    ┌────┴────┬────────┬────────┐
+    │         │        │        │
+┌───▼───┐ ┌──▼───┐ ┌──▼───┐ ┌──▼───┐
+│Worker1│ │Worker2│ │Worker3│ │Worker4│
+│ 5000  │ │ 5000  │ │ 5000  │ │ 5000  │
+└───────┘ └──────┘ └──────┘ └──────┘
+(Teammates' machines)
 ```
 
-## 🚀 Quick Start
+## Setup Instructions
 
-### 1. Start the Master Node (Owner)
-- Run `cluster/start_master.bat` OR
-- Open `cluster/master.ipynb` and run cells
+### For Master (You)
 
-**Master URL**: `spark://192.168.1.5:7077`  
-**Web UI**: `http://localhost:8080`
+1. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-### 2. Connect Workers (Teammates)
-- Share `cluster/worker.ipynb` with teammates
-- They run it on their machines to join the cluster
-- Verify connection on Web UI
+2. **Start the master node:**
+   ```bash
+   start-master-local.bat
+   ```
+   Or directly:
+   ```bash
+   python master_node.py
+   ```
 
-### 3. Fetch Data
-- Open `notebooks/fetch_data.ipynb`
-- Run cells to download news articles from GDELT
+3. **Access the dashboard:**
+   - Open browser: http://localhost:5000
+   - You'll see connected workers and processing status
 
-### 4. Run Classification
-- Open `notebooks/classification.ipynb`
-- Run cells to analyze and classify news with distributed ML
+4. **Share your IP with teammates:**
+   - Share this URL: `http://192.168.1.2:5000`
 
-## 📋 Requirements
+### For Workers (Teammates)
 
-- Python 3.11+
-- PySpark
-- Apache Spark installed at `C:/spark`
-- Network connectivity for cluster mode
-- Git for version control
+1. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-## 🔧 Setup GitHub Repository
+2. **Update worker configuration:**
+   - Open `worker_node.py`
+   - Change line: `MASTER_URL = 'http://192.168.1.2:5000'`
+   - Replace with actual master IP
 
-1. Run `setup_github.bat` to initialize Git
-2. Create repository on GitHub: `News-Sentiment-Stock-Predictor`
-3. Follow the instructions in the script output
-4. Add team members as collaborators
-5. Protect `main` branch (require PR reviews)
+3. **Start the worker node:**
+   ```bash
+   start-worker-local.bat
+   ```
+   Or directly:
+   ```bash
+   python worker_node.py
+   ```
 
-## 👥 Team Workflow
+4. **Verify connection:**
+   - Worker will automatically register with master
+   - Check master dashboard to see your worker listed
 
-**Team Members:**
+## How It Works
+
+1. **Master Node:**
+   - Provides web dashboard at port 5000
+   - Accepts worker registrations
+   - Distributes news data to workers
+   - Collects and aggregates results
+
+2. **Worker Nodes:**
+   - Register with master on startup
+   - Send heartbeat every 10 seconds
+   - Process sentiment analysis tasks
+   - Submit results back to master
+
+3. **Processing Flow:**
+   - Master loads news data
+   - Splits data into chunks
+   - Distributes chunks to available workers
+   - Workers analyze sentiment using VADER
+   - Master aggregates results and displays statistics
+
+## Usage
+
+### Start Processing
+
+1. Ensure workers are connected (check dashboard)
+2. Click "Start Processing" on master dashboard
+3. Watch results appear in real-time
+
+### Monitor Cluster
+
+- **Master Dashboard:** http://localhost:5000
+- **Worker Status:** http://localhost:5000 (on worker machine)
+- **View Logs:** Check terminal output
+
+### Stop Nodes
+
+Press `Ctrl+C` in the terminal running the node
+
+## Data
+
+Place your news data in `data/gdelt_english_news.csv`
+
+If no data file exists, the system uses sample news headlines.
+
+## Troubleshooting
+
+### Workers can't connect to master
+
+1. Check firewall settings - allow port 5000
+2. Verify master IP address is correct
+3. Ensure both machines are on same network
+4. Check master is running: `docker ps`
+
+### Worker shows as offline
+
+1. Check worker logs: `docker-compose -f docker-compose-worker.yml logs`
+2. Verify MASTER_URL is correct in worker_node.py
+3. Restart worker: `docker-compose -f docker-compose-worker.yml restart`
+
+### No results appearing
+
+1. Check if workers are online in dashboard
+2. Verify data file exists or sample data is being used
+3. Check master logs for errors
+
+## Network Requirements
+
+- Master and workers must be on the same network (or have network connectivity)
+- Port 5000 must be accessible on master machine
+- Firewall must allow incoming connections on port 5000
+
+## Commands Reference
+
 ```bash
-git clone <repo-url>
-git checkout team-dev
-# Make changes
-git add .
-git commit -m "Your changes"
-git push origin team-dev
-# Create Pull Request on GitHub
+# Build images
+docker-compose -f docker-compose-master.yml build
+docker-compose -f docker-compose-worker.yml build
+
+# Start nodes
+docker-compose -f docker-compose-master.yml up -d
+docker-compose -f docker-compose-worker.yml up -d
+
+# View logs
+docker-compose -f docker-compose-master.yml logs -f
+docker-compose -f docker-compose-worker.yml logs -f
+
+# Stop nodes
+docker-compose -f docker-compose-master.yml down
+docker-compose -f docker-compose-worker.yml down
+
+# Restart nodes
+docker-compose -f docker-compose-master.yml restart
+docker-compose -f docker-compose-worker.yml restart
 ```
 
-**Owner (Master Node):**
-```bash
-git checkout team-dev
-git pull origin team-dev
-# Review changes
-git checkout main
-git merge team-dev
-git push origin main
-```
+## Features
 
-## 📊 Features
+- ✅ Real-time worker registration
+- ✅ Automatic heartbeat monitoring
+- ✅ Distributed sentiment analysis
+- ✅ Web-based dashboard
+- ✅ Result aggregation
+- ✅ Task distribution
+- ✅ Worker health monitoring
 
-- Distributed data processing with PySpark
-- Real-time news fetching from GDELT API
-- Sentiment analysis on news articles
-- Stock prediction based on news sentiment
-- Collaborative development workflow
-- Scalable cluster architecture
+## Tech Stack
 
-## 🛠️ Tech Stack
-
-- **PySpark**: Distributed computing
-- **Apache Spark**: Cluster management
-- **GDELT API**: News data source
-- **Jupyter Notebooks**: Interactive development
-- **Git**: Version control
-
----
-
-**Master Node Owner**: Manages cluster and merges team contributions  
-**Team Members**: Develop on `team-dev` branch and submit PRs
+- **Python 3.11**
+- **Flask** - Web framework
+- **Docker** - Containerization
+- **VADER** - Sentiment analysis
+- **Pandas** - Data processing

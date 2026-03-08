@@ -1,13 +1,12 @@
-# PySpark and dependencies
-pyspark>=3.5.0
+# Web framework
+flask>=3.0.0
 
-# Sentiment Analysis
-vaderSentiment>=3.3.2
+# HTTP client
+requests>=2.31.0
 
 # Data processing
 pandas>=2.0.0
 numpy>=1.24.0
 
-# Optional: For future enhancements
-# transformers>=4.30.0  # For BERT/FinBERT
-# torch>=2.0.0  # For BERT models
+# Sentiment Analysis
+vaderSentiment>=3.3.2

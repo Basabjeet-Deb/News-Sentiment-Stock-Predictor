@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  master:
+    build: .
+    container_name: cluster-master
+    hostname: master
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_TYPE=master
+      - NODE_ID=master
+    volumes:
+      - ./:/app
+      - ./data:/app/data
+      - ./results:/app/results
+    command: python master_node.py
+    networks:
+      - cluster-network
+
+networks:
+  cluster-network:
+    driver: bridge
