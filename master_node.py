@@ -49,13 +49,18 @@ def register_worker():
     """Worker registration endpoint"""
     data = request.json
     worker_id = data.get('worker_id')
+    worker_url = data.get('worker_url')  # Get URL from worker
     worker_ip = request.remote_addr
+    
+    # If worker didn't provide URL, construct it from IP
+    if not worker_url:
+        worker_url = f"http://{worker_ip}:5000"
     
     with worker_lock:
         workers[worker_id] = {
             'id': worker_id,
             'ip': worker_ip,
-            'url': f"http://{worker_ip}:5000",
+            'url': worker_url,  # Use provided URL
             'online': True,
             'last_seen': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             'tasks_completed': 0,
@@ -63,6 +68,7 @@ def register_worker():
         }
     
     print(f"[OK] Worker {worker_id} registered from {worker_ip}")
+    print(f"[OK] Worker URL: {worker_url}")
     
     return jsonify({
         'status': 'registered',
