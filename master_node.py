@@ -1,158 +1,48 @@
 """
-Master Node - Coordinates distributed processing
-Teammates connect their worker nodes to this master
+Master Node - Distributed Stock Prediction System
+Coordinates workers, distributes stocks, aggregates predictions
+Provides REST API for frontend
 """
 
-from flask import Flask, request, jsonify, render_template_string
-import requests
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import pandas as pd
+import os
 import time
 import threading
 from datetime import datetime
-import pandas as pd
-import os
+import requests
 
 app = Flask(__name__)
+CORS(app)  # Enable CORS for frontend
 
 # Store connected workers
 workers = {}
 worker_lock = threading.Lock()
 
-# Store processing results
-results = []
+# Store results
+all_predictions = []
 results_lock = threading.Lock()
 
 # Processing status
 processing_status = {
     'active': False,
-    'total_tasks': 0,
-    'completed_tasks': 0,
+    'total_stocks': 0,
+    'completed_stocks': 0,
     'start_time': None
 }
 
+# Stock distribution (50 stocks split into 3 groups)
+STOCK_GROUPS = {
+    'worker1': ['AAPL', 'AMD', 'AMZN', 'ABT', 'ABBV', 'AXP', 'BA', 'BAC', 'BLK', 'BMY', 'C', 'CAT', 'COP', 'COST', 'CVX', 'DHR', 'DIS'],
+    'worker2': ['EOG', 'GE', 'GOOGL', 'GS', 'HD', 'HON', 'INTC', 'JNJ', 'JPM', 'LLY', 'LOW', 'MCD', 'MRK', 'MS', 'MSFT', 'META', 'MMM'],
+    'worker3': ['NFLX', 'NKE', 'NVDA', 'ORCL', 'PFE', 'SBUX', 'SCHW', 'SLB', 'TGT', 'TMO', 'TSLA', 'UNH', 'V', 'WFC', 'WMT', 'XOM']
+}
 
-@app.route('/')
-def dashboard():
-    """Master dashboard"""
-    html = """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Master Node Dashboard</title>
-        <meta http-equiv="refresh" content="5">
-        <style>
-            body { font-family: Arial; margin: 20px; background: #f5f5f5; }
-            .container { max-width: 1200px; margin: 0 auto; }
-            .header { background: #2c3e50; color: white; padding: 20px; border-radius: 5px; }
-            .card { background: white; padding: 20px; margin: 20px 0; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-            .worker { padding: 10px; margin: 10px 0; background: #ecf0f1; border-radius: 3px; }
-            .online { border-left: 5px solid #27ae60; }
-            .offline { border-left: 5px solid #e74c3c; }
-            .btn { background: #3498db; color: white; padding: 10px 20px; border: none; border-radius: 3px; cursor: pointer; }
-            .btn:hover { background: #2980b9; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
-            th { background: #34495e; color: white; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h1>🎯 Master Node Dashboard</h1>
-                <p>Distributed News Sentiment Analysis Cluster</p>
-            </div>
-            
-            <div class="card">
-                <h2>📊 Cluster Status</h2>
-                <p><strong>Master Node:</strong> Online</p>
-                <p><strong>Connected Workers:</strong> {{ worker_count }}</p>
-                <p><strong>Processing Status:</strong> {{ 'Active' if status.active else 'Idle' }}</p>
-                {% if status.active %}
-                <p><strong>Progress:</strong> {{ status.completed_tasks }}/{{ status.total_tasks }} tasks</p>
-                {% endif %}
-            </div>
-            
-            <div class="card">
-                <h2>👥 Connected Workers</h2>
-                {% if workers %}
-                    {% for worker_id, worker in workers.items() %}
-                    <div class="worker {{ 'online' if worker.online else 'offline' }}">
-                        <strong>Worker {{ worker_id }}</strong><br>
-                        IP: {{ worker.ip }}<br>
-                        Status: {{ 'Online ✓' if worker.online else 'Offline ✗' }}<br>
-                        Last Seen: {{ worker.last_seen }}<br>
-                        Tasks Completed: {{ worker.tasks_completed }}
-                    </div>
-                    {% endfor %}
-                {% else %}
-                    <p>No workers connected yet.</p>
-                    <p><strong>Workers should connect to:</strong> http://YOUR_IP:5000/register</p>
-                {% endif %}
-            </div>
-            
-            <div class="card">
-                <h2>🚀 Actions</h2>
-                <button class="btn" onclick="startProcessing()">Start Processing</button>
-                <button class="btn" onclick="location.reload()">Refresh</button>
-            </div>
-            
-            <div class="card">
-                <h2>📈 Recent Results</h2>
-                {% if results %}
-                <table>
-                    <tr>
-                        <th>Worker</th>
-                        <th>Tasks</th>
-                        <th>Avg Sentiment</th>
-                        <th>Time</th>
-                    </tr>
-                    {% for result in results[-10:] %}
-                    <tr>
-                        <td>{{ result.worker_id }}</td>
-                        <td>{{ result.count }}</td>
-                        <td>{{ "%.4f"|format(result.avg_sentiment) }}</td>
-                        <td>{{ result.timestamp }}</td>
-                    </tr>
-                    {% endfor %}
-                </table>
-                {% else %}
-                <p>No results yet.</p>
-                {% endif %}
-            </div>
-        </div>
-        
-        <script>
-            function startProcessing() {
-                fetch('/start_processing', {method: 'POST'})
-                    .then(r => r.json())
-                    .then(data => {
-                        alert(data.message);
-                        location.reload();
-                    });
-            }
-        </script>
-    </body>
-    </html>
-    """
-    
-    with worker_lock:
-        worker_list = {k: {
-            'ip': v['ip'],
-            'online': v['online'],
-            'last_seen': v['last_seen'],
-            'tasks_completed': v['tasks_completed']
-        } for k, v in workers.items()}
-    
-    with results_lock:
-        result_list = results.copy()
-    
-    return render_template_string(
-        html,
-        workers=worker_list,
-        worker_count=len([w for w in worker_list.values() if w['online']]),
-        status=processing_status,
-        results=result_list
-    )
 
+# ============================================================
+# WORKER MANAGEMENT
+# ============================================================
 
 @app.route('/register', methods=['POST'])
 def register_worker():
@@ -168,10 +58,11 @@ def register_worker():
             'url': f"http://{worker_ip}:5000",
             'online': True,
             'last_seen': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'tasks_completed': 0
+            'tasks_completed': 0,
+            'assigned_stocks': []
         }
     
-    print(f"✓ Worker {worker_id} registered from {worker_ip}")
+    print(f"[OK] Worker {worker_id} registered from {worker_ip}")
     
     return jsonify({
         'status': 'registered',
@@ -199,107 +90,233 @@ def submit_result():
     """Workers submit their results here"""
     data = request.json
     worker_id = data.get('worker_id')
+    results = data.get('results', [])
     
     with worker_lock:
         if worker_id in workers:
-            workers[worker_id]['tasks_completed'] += 1
+            workers[worker_id]['tasks_completed'] += len(results)
     
     with results_lock:
-        results.append({
-            'worker_id': worker_id,
-            'count': data.get('count', 0),
-            'avg_sentiment': data.get('avg_sentiment', 0),
-            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        })
-        processing_status['completed_tasks'] += 1
+        all_predictions.extend(results)
+        processing_status['completed_stocks'] += len(results)
     
-    print(f"✓ Received results from Worker {worker_id}")
+    print(f"[OK] Received {len(results)} predictions from Worker {worker_id}")
     
     return jsonify({'status': 'received'})
 
 
-@app.route('/start_processing', methods=['POST'])
+# ============================================================
+# API ENDPOINTS FOR FRONTEND
+# ============================================================
+
+@app.route('/api/predictions', methods=['GET'])
+def get_predictions():
+    """Get all stock predictions"""
+    with results_lock:
+        return jsonify({
+            'predictions': all_predictions,
+            'total': len(all_predictions),
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        })
+
+
+@app.route('/api/stock/<ticker>', methods=['GET'])
+def get_stock(ticker):
+    """Get prediction for specific stock"""
+    with results_lock:
+        stock_pred = next((p for p in all_predictions if p['ticker'] == ticker), None)
+        
+        if stock_pred:
+            return jsonify(stock_pred)
+        else:
+            return jsonify({'error': 'Stock not found'}), 404
+
+
+@app.route('/api/workers', methods=['GET'])
+def get_workers():
+    """Get worker status"""
+    with worker_lock:
+        worker_list = list(workers.values())
+    
+    return jsonify({
+        'workers': worker_list,
+        'total': len(worker_list),
+        'online': len([w for w in worker_list if w['online']])
+    })
+
+
+@app.route('/api/stats', methods=['GET'])
+def get_stats():
+    """Get overall statistics"""
+    with results_lock:
+        predictions = all_predictions.copy()
+    
+    if not predictions:
+        return jsonify({
+            'total_stocks': 0,
+            'buy_signals': 0,
+            'sell_signals': 0,
+            'hold_signals': 0,
+            'avg_sentiment': 0,
+            'processing': processing_status['active']
+        })
+    
+    buy = len([p for p in predictions if p['recommendation'] == 'BUY'])
+    sell = len([p for p in predictions if p['recommendation'] == 'SELL'])
+    hold = len([p for p in predictions if p['recommendation'] == 'HOLD'])
+    avg_sentiment = sum(p['sentiment'] for p in predictions) / len(predictions)
+    
+    return jsonify({
+        'total_stocks': len(predictions),
+        'buy_signals': buy,
+        'sell_signals': sell,
+        'hold_signals': hold,
+        'avg_sentiment': round(avg_sentiment, 3),
+        'processing': processing_status['active'],
+        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    })
+
+
+@app.route('/api/start', methods=['POST'])
 def start_processing():
     """Start distributed processing"""
-    with worker_lock:
-        online_workers = [w for w in workers.values() if w['online']]
     
-    if not online_workers:
-        return jsonify({'status': 'error', 'message': 'No workers available'})
+    with worker_lock:
+        online_workers = {k: v for k, v in workers.items() if v['online']}
+    
+    if len(online_workers) == 0:
+        return jsonify({'status': 'error', 'message': 'No workers available'}), 400
+    
+    print("\n" + "="*60)
+    print("STARTING DISTRIBUTED STOCK ANALYSIS")
+    print("="*60)
     
     # Load data
-    data_path = 'data/gdelt_english_news.csv'
-    if not os.path.exists(data_path):
-        # Use sample data
-        news_data = [
-            "Stock market reaches all-time high",
-            "Tech company announces layoffs",
-            "Federal Reserve raises interest rates",
-            "Oil prices surge amid tensions",
-            "Bank reports record profits",
-            "Cryptocurrency market crashes",
-            "Manufacturing sector slows down",
-            "Consumer confidence drops",
-            "Tech stocks rally on earnings",
-            "Supply chain issues persist"
-        ] * 10
-    else:
-        df = pd.read_csv(data_path)
-        news_data = df.iloc[:, 0].dropna().tolist()[:100]
+    try:
+        stock_df = pd.read_csv('data/stock_prices.csv')
+        news_df = pd.read_csv('data/processed_news.csv')
+        print(f"[OK] Loaded {len(stock_df)} stock records")
+        print(f"[OK] Loaded {len(news_df)} news articles")
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': f'Failed to load data: {e}'}), 500
+    
+    # Clear previous results
+    with results_lock:
+        all_predictions.clear()
+        processing_status['active'] = True
+        processing_status['total_stocks'] = 50
+        processing_status['completed_stocks'] = 0
+        processing_status['start_time'] = time.time()
     
     # Distribute tasks
-    chunk_size = len(news_data) // len(online_workers)
-    
-    processing_status['active'] = True
-    processing_status['total_tasks'] = len(online_workers)
-    processing_status['completed_tasks'] = 0
-    processing_status['start_time'] = time.time()
-    
     def distribute_tasks():
-        for i, worker in enumerate(online_workers):
-            start_idx = i * chunk_size
-            end_idx = start_idx + chunk_size if i < len(online_workers) - 1 else len(news_data)
-            chunk = news_data[start_idx:end_idx]
+        worker_ids = list(online_workers.keys())
+        
+        for i, worker_id in enumerate(worker_ids):
+            # Assign stock group
+            group_key = f'worker{i+1}' if i < 3 else 'worker3'
+            assigned_stocks = STOCK_GROUPS.get(group_key, [])
             
+            # Filter data for assigned stocks
+            worker_stock_data = stock_df[stock_df['Ticker'].isin(assigned_stocks)]
+            worker_news_data = news_df[news_df['mentioned_stocks'].notna()]
+            
+            # Update worker assignment
+            with worker_lock:
+                workers[worker_id]['assigned_stocks'] = assigned_stocks
+            
+            print(f"\n[Worker {worker_id}]")
+            print(f"  Assigned stocks: {len(assigned_stocks)}")
+            print(f"  Stock records: {len(worker_stock_data)}")
+            
+            # Send task to worker
             try:
+                worker_url = online_workers[worker_id]['url']
                 response = requests.post(
-                    f"{worker['url']}/process",
-                    json={'news': chunk},
-                    timeout=30
+                    f"{worker_url}/process_stocks",
+                    json={
+                        'stocks': assigned_stocks,
+                        'stock_data': worker_stock_data.to_dict('records'),
+                        'news_data': worker_news_data.to_dict('records')
+                    },
+                    timeout=120
                 )
-                print(f"✓ Sent {len(chunk)} items to Worker {worker['id']}")
+                
+                if response.status_code == 200:
+                    print(f"  [OK] Task sent successfully")
+                else:
+                    print(f"  [ERROR] Task failed: {response.status_code}")
+            
             except Exception as e:
-                print(f"✗ Failed to send to Worker {worker['id']}: {e}")
+                print(f"  [ERROR] Failed to send task: {e}")
         
         processing_status['active'] = False
+        
+        # Save results to CSV
+        if all_predictions:
+            os.makedirs('results', exist_ok=True)
+            results_df = pd.DataFrame(all_predictions)
+            results_df.to_csv('results/predictions.csv', index=False)
+            print(f"\n[OK] Saved {len(all_predictions)} predictions to results/predictions.csv")
     
+    # Start distribution in background
     threading.Thread(target=distribute_tasks, daemon=True).start()
     
     return jsonify({
         'status': 'started',
-        'message': f'Processing started with {len(online_workers)} workers'
+        'message': f'Processing started with {len(online_workers)} workers',
+        'workers': len(online_workers),
+        'total_stocks': 50
     })
 
 
-@app.route('/status')
-def status():
-    """API endpoint for cluster status"""
+@app.route('/')
+def dashboard():
+    """Simple status page"""
     with worker_lock:
         worker_count = len([w for w in workers.values() if w['online']])
     
-    return jsonify({
-        'master': 'online',
-        'workers': worker_count,
-        'processing': processing_status['active']
-    })
+    with results_lock:
+        prediction_count = len(all_predictions)
+    
+    return f"""
+    <html>
+    <head><title>Stock Prediction Master Node</title></head>
+    <body style="font-family: Arial; padding: 20px;">
+        <h1>Stock Prediction Master Node</h1>
+        <h2>Status</h2>
+        <p>Workers Online: {worker_count}</p>
+        <p>Predictions: {prediction_count}</p>
+        <p>Processing: {'Yes' if processing_status['active'] else 'No'}</p>
+        
+        <h2>API Endpoints</h2>
+        <ul>
+            <li><a href="/api/predictions">/api/predictions</a> - All predictions</li>
+            <li><a href="/api/workers">/api/workers</a> - Worker status</li>
+            <li><a href="/api/stats">/api/stats</a> - Statistics</li>
+            <li>POST /api/start - Start processing</li>
+        </ul>
+        
+        <h2>Actions</h2>
+        <button onclick="fetch('/api/start', {{method: 'POST'}}).then(r => r.json()).then(d => alert(JSON.stringify(d)))">
+            Start Processing
+        </button>
+    </body>
+    </html>
+    """
 
 
 if __name__ == '__main__':
     print("="*60)
-    print("MASTER NODE STARTING")
+    print("MASTER NODE - STOCK PREDICTION SYSTEM")
     print("="*60)
-    print(f"Dashboard: http://localhost:5000")
-    print(f"Workers should register at: http://YOUR_IP:5000/register")
+    print("API Endpoints:")
+    print("  GET  /api/predictions - All stock predictions")
+    print("  GET  /api/stock/<ticker> - Single stock")
+    print("  GET  /api/workers - Worker status")
+    print("  GET  /api/stats - Statistics")
+    print("  POST /api/start - Start processing")
+    print("\nDashboard: http://localhost:5000")
     print("="*60)
     
     app.run(host='0.0.0.0', port=5000, debug=False)
