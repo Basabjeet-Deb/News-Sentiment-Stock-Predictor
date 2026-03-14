@@ -17,7 +17,7 @@ class NewsDataFetcher:
         os.makedirs(self.output_dir, exist_ok=True)
     
     def fetch_news(self, query="stock market OR economy OR finance", 
-                   mode="artlist", max_records=250, timespan="1d"):
+                   mode="artlist", max_records=5000, timespan="1d"):
         """
         Fetch news articles from GDELT
         
@@ -127,10 +127,11 @@ def main():
     fetcher = NewsDataFetcher()
     
     print("="*60)
-    print("NEWS DATA FETCHER - GDELT (Optimized)")
+    print("NEWS DATA FETCHER - LARGE DATASET (15,000+ articles)")
     print("="*60)
+    print("Strategy: Time-window approach to avoid rate limits")
+    print("Estimated time: 10-11 minutes\n")
     
-    # Simplified categories with longer delays
     categories = [
         ("Business", "business economy"),
         ("Technology", "technology AI"),
@@ -142,42 +143,177 @@ def main():
     ]
     
     all_news = []
+    days_per_category = 9  # 9 days × 7 categories = 63 requests
     
-    print(f"\nFetching from {len(categories)} categories...")
-    print(f"Timespan: 30 days")
-    print(f"Strategy: Slow and steady to avoid rate limits\n")
+    total_requests = len(categories) * days_per_category
+    current_request = 0
     
-    for i, (category, query) in enumerate(categories):
-        print(f"[{i+1}/{len(categories)}] {category}")
+    print(f"Total requests: {total_requests}")
+    print(f"Target articles: ~{total_requests * 250:,}\n")
+    
+    for cat_idx, (category, query) in enumerate(categories):
+        print(f"\n[{cat_idx+1}/{len(categories)}] {category}")
+        print(f"Fetching {days_per_category} days of data...")
         
-        # Fetch with smaller batches
-        articles = fetcher.fetch_news(
-            query=query,
-            timespan="30d",
-            max_records=250
-        )
+        category_articles = []
         
-        for article in articles:
-            article['category'] = category
+        for day in range(1, days_per_category + 1):
+            current_request += 1
+            
+            print(f"  Day {day}/{days_per_category} (Request {current_request}/{total_requests})...", end=" ")
+            
+            articles = fetcher.fetch_news_by_day(
+                query=query,
+                days_ago=day,
+                max_records=250
+            )
+            
+            if articles:
+                print(f"{len(articles)} articles")
+                for article in articles:
+                    article['category'] = category
+                category_articles.extend(articles)
+            else:
+                print("0 articles")
+            
+            # Delay between requests (15 seconds to be safe)
+            if current_request < total_requests:
+                time.sleep(15)
         
-        all_news.extend(articles)
-        print(f"  Total: {len(all_news)} articles\n")
-        
-        # Long delay between requests (10 seconds)
-        if i < len(categories) - 1:
-            print(f"  Waiting 10 seconds before next category...")
-            time.sleep(10)
+        all_news.extend(category_articles)
+        print(f"  Category total: {len(category_articles)} articles")
+        print(f"  Overall total: {len(all_news)} articles")
     
     if all_news:
         filepath = fetcher.save_to_csv(all_news, filename="gdelt_english_news.csv")
         
         print("\n" + "="*60)
-        print("SUMMARY")
+        print("COLLECTION COMPLETE!")
+        print("="*60)
+        print(f"Total articles: {len(all_news):,}")
+        print(f"Categories: {len(categories)}")
+        print(f"Saved to: {filepath}")
+        print(f"\nReady for distributed processing across 3 workers!")
+        print(f"Each worker will process ~{len(all_news) // 3:,} articles")
+    else:
+        print("\n[ERROR] No news fetched")
+            
+            try:
+                response = requests.get(fetcher.base_url, params=params, timeout=30)
+                response.raise_for_status()
+                
+                data = response.json()
+                
+                if 'articles' in data:
+                    articles = data['articles']
+                    
+                    # Tag with category
+                    for article in articles:
+                        article['category'] = category
+                        article['fetch_day'] = day
+                    
+                    all_news.extend(articles)
+                    print(f"  [OK] Fetched {len(articles)} articles")
+                else:
+                    print(f"  [WARN] No articles found")
+                    
+            except Exception as e:
+                print(f"  [ERROR] {e}")
+            
+            print(f"  Total collected: {len(all_news):,} articles")
+            
+            # Progress bar
+            progress = (current_request / total_requests) * 100
+            print(f"  Progress: {progress:.1f}%")
+            
+            # Delay between requests (10 seconds)
+            if current_request < total_requests:
+                print(f"  Waiting 10 seconds...")
+                time.sleep(10)
+    
+    # Save results
+    if all_news:
+        filepath = fetcher.save_to_csv(all_news, filename="gdelt_english_news.csv")
+        
+        print("\n" + "="*60)
+        print("COLLECTION COMPLETE!")
+        print("="*60)
+        print(f"Total articles: {len(all_news):,}")
+        print(f"Categories: {len(categories)}")
+        print(f"Days per category: 9")
+        print(f"Saved to: {filepath}")
+        print(f"\nDataset ready for distributed processing!")
+        print(f"Each worker will process ~{len(all_news) // 3:,} articles")
+    else:
+        print("\n[ERROR] No news fetched")
+            
+            all_news.extend(articles)
+            
+            print(f"{len(articles)} articles | Total: {len(all_news)}")
+            
+            # Progress indicator
+            progress = (current_request / total_requests) * 100
+            elapsed = time.time() - start_time
+            estimated_total = (elapsed / current_request) * total_requests if current_request > 0 else 0
+            remaining = estimated_total - elapsed
+            
+            print(f"  Progress: {progress:.1f}% | Elapsed: {elapsed/60:.1f}m | Remaining: ~{remaining/60:.1f}m")
+            
+            # Delay between requests (10 seconds)
+            if current_request < total_requests:
+                print(f"  Waiting 10 seconds...")
+                time.sleep(10)
+    
+    # Save results
+    if all_news:
+        filepath = fetcher.save_to_csv(all_news, filename="gdelt_english_news.csv")
+        
+        total_time = time.time() - start_time
+        
+        print("\n" + "="*60)
+        print("COLLECTION COMPLETE!")
         print("="*60)
         print(f"Total articles: {len(all_news)}")
         print(f"Categories: {len(categories)}")
+        print(f"Requests made: {current_request}")
+        print(f"Total time: {total_time/60:.1f} minutes")
         print(f"Saved to: {filepath}")
-        print(f"\nReady for distributed processing!")
+        print(f"\nReady for distributed processing across 3 workers!")
+        print(f"Each worker will process ~{len(all_news) / 3:.0f} articles")
+    else:
+        print("\n[ERROR] No news fetched")
+            
+            all_news.extend(articles)
+            
+            # Progress update
+            elapsed = time.time() - start_time
+            progress = (current_request / total_requests) * 100
+            eta = (elapsed / current_request) * (total_requests - current_request)
+            
+            print(f"  Total collected: {len(all_news)} articles")
+            print(f"  Progress: {progress:.1f}%")
+            print(f"  ETA: {eta/60:.1f} minutes")
+            
+            # Delay between requests (except last one)
+            if current_request < total_requests:
+                print(f"  Waiting 10 seconds...")
+                time.sleep(10)
+    
+    # Save results
+    if all_news:
+        filepath = fetcher.save_to_csv(all_news, filename="gdelt_english_news.csv")
+        
+        total_time = time.time() - start_time
+        
+        print("\n" + "="*60)
+        print("COLLECTION COMPLETE!")
+        print("="*60)
+        print(f"Total articles: {len(all_news)}")
+        print(f"Categories: {len(categories)}")
+        print(f"Time taken: {total_time/60:.1f} minutes")
+        print(f"Saved to: {filepath}")
+        print(f"\nDataset ready for distributed processing!")
+        print(f"Each worker will process ~{len(all_news) / 3:.0f} articles")
     else:
         print("\n[ERROR] No news fetched")
 
