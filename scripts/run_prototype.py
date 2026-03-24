@@ -16,7 +16,7 @@ def run_script(script_name, description):
     
     try:
         result = subprocess.run(
-            [sys.executable, script_name],
+            [sys.executable, f"scripts/{script_name}"],
             capture_output=False,
             text=True
         )

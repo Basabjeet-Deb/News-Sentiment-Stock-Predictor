@@ -7,6 +7,10 @@ import yfinance as yf
 import pandas as pd
 from datetime import datetime, timedelta
 import os
+import sys
+
+# Add parent directory to path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import TARGET_STOCKS, STOCK_NAMES, HISTORICAL_DAYS
 
 def fetch_stock_data():

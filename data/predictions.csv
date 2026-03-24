@@ -1,0 +1,11 @@
+ticker,company,current_price,predicted_price,predicted_change_pct,trend,sentiment,sentiment_score,news_count,confidence,recommendation,ma_7,ma_30,volatility,analysis_date
+AAPL,Apple Inc.,251.49,250.23,-0.5,Downtrend,No News,0.0,0,0.25,SELL,250.79,261.53,2.19,2026-03-24 17:55:09
+MSFT,Microsoft Corporation,383.0,381.08,-0.5,Downtrend,No News,0.0,0,0.25,SELL,391.51,399.28,7.32,2026-03-24 17:55:09
+GOOGL,Alphabet Inc. (Google),302.06,300.55,-0.5,Downtrend,No News,0.0,0,0.25,SELL,305.23,307.23,3.62,2026-03-24 17:55:09
+TSLA,Tesla Inc.,380.85,378.95,-0.5,Downtrend,No News,0.0,0,0.25,SELL,386.85,403.37,10.95,2026-03-24 17:55:09
+AMZN,Amazon.com Inc.,210.14,211.19,0.5,Uptrend,No News,0.0,0,0.25,BUY,209.82,208.88,3.12,2026-03-24 17:55:09
+NVDA,NVIDIA Corporation,175.64,174.76,-0.5,Downtrend,No News,0.0,0,0.25,SELL,178.96,184.23,3.68,2026-03-24 17:55:09
+META,Meta Platforms Inc.,604.06,601.04,-0.5,Downtrend,No News,0.0,0,0.25,SELL,611.91,642.38,11.51,2026-03-24 17:55:09
+JPM,JPMorgan Chase & Co.,289.91,288.46,-0.5,Downtrend,No News,0.0,0,0.25,SELL,286.95,297.79,1.98,2026-03-24 17:55:09
+V,Visa Inc.,304.44,302.66,-0.58,Downtrend,Neutral,-0.042,6,0.59,SELL,304.36,314.64,4.38,2026-03-24 17:55:09
+WMT,Walmart Inc.,120.72,120.12,-0.5,Downtrend,No News,0.0,0,0.25,SELL,122.73,125.58,2.84,2026-03-24 17:55:09

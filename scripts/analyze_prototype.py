@@ -8,6 +8,10 @@ import numpy as np
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 from datetime import datetime
 import os
+import sys
+
+# Add parent directory to path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import TARGET_STOCKS, STOCK_NAMES, SENTIMENT_POSITIVE, SENTIMENT_NEGATIVE
 
 analyzer = SentimentIntensityAnalyzer()
