@@ -1,111 +1,189 @@
-# News Sentiment Stock Predictor - Distributed System
+# Stock Predictor - AI-Powered Stock Analysis
 
-Distributed stock prediction system using news sentiment analysis on local network.
+News sentiment-based stock prediction system with distributed computing support.
 
-## Architecture
+## Features
+
+✅ **AI-Powered Predictions** - Sentiment analysis on news articles  
+✅ **10 Major Stocks** - AAPL, MSFT, GOOGL, TSLA, AMZN, NVDA, META, JPM, V, WMT  
+✅ **Modern Dashboard** - Beautiful web interface with charts  
+✅ **Distributed Computing** - Cluster support for parallel processing  
+✅ **RESTful API** - Scalable FastAPI backend  
+
+## Project Structure
 
 ```
-Master Node (Docker)          Worker Nodes (Local Network)
-┌──────────────┐             ┌──────────────┐
-│   Master     │◄────────────│   Worker 1   │
-│  Port 8000   │             │  Port 5000   │
-└──────────────┘             └──────────────┘
-       ▲                     ┌──────────────┐
-       └─────────────────────│   Worker 2   │
-                             │  Port 5001   │
-                             └──────────────┘
-                             ┌──────────────┐
-                             │   Worker 3   │
-                             │  Port 5002   │
-                             └──────────────┘
+├── backend/           # FastAPI backend
+│   └── api.py        # REST API server
+├── frontend/          # Web dashboard
+│   ├── index.html    # Main page
+│   ├── style.css     # Styles
+│   └── app.js        # JavaScript
+├── scripts/           # Data processing
+│   ├── fetch_prototype_data.py
+│   ├── fetch_targeted_news.py
+│   ├── analyze_prototype.py
+│   └── run_prototype.py
+├── cluster/           # Distributed computing
+│   ├── cluster_master.py
+│   ├── cluster_worker.py
+│   └── distributed_analyze.py
+├── data/              # Data files
+├── docs/              # Documentation
+└── config.py          # Configuration
+
 ```
 
-## Setup
+## Quick Start
 
-### 1. Start Master (Docker)
-
-```bash
-docker-compose up -d
-```
-
-Master runs at `http://YOUR_IP:8000`
-
-### 2. Start Workers (On Teammate Machines)
-
-Each teammate runs:
-
-```bash
-# Set master IP
-$env:MASTER_URL="http://192.168.1.100:8000"
-
-# Start worker
-python worker.py
-```
-
-Or with custom settings:
-
-```bash
-$env:MASTER_URL="http://192.168.1.100:8000"
-$env:WORKER_ID="worker1"
-$env:WORKER_PORT="5000"
-python worker.py
-```
-
-### 3. Start Processing
-
-```bash
-curl -X POST http://YOUR_IP:8000/start
-```
-
-### 4. Get Results
-
-```bash
-curl http://YOUR_IP:8000/results
-```
-
-## API Endpoints
-
-### Master Node
-
-- `GET /` - Status
-- `POST /register` - Worker registration
-- `POST /start` - Start processing
-- `GET /results` - Get all predictions
-- `GET /results/{ticker}` - Get specific stock
-- `GET /workers` - Worker status
-
-### Worker Node
-
-- `GET /` - Worker status
-- `POST /process` - Process stocks (called by master)
-
-## Stock Distribution
-
-- Worker 1: 17 stocks (AAPL, AMD, AMZN, ...)
-- Worker 2: 17 stocks (MCD, MMM, MSFT, ...)
-- Worker 3: 16 stocks (NFLX, INTC, IBM, ...)
-
-## Requirements
+### 1. Install Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
+### 2. Collect Data
+
+```bash
+python scripts/run_prototype.py
+```
+
+This will:
+- Fetch stock data for 10 major stocks
+- Scrape targeted news articles
+- Analyze sentiment and generate predictions
+
+### 3. Start Application
+
+```bash
+start_app.bat
+```
+
+Or manually:
+
+**Terminal 1 - Backend:**
+```bash
+cd backend
+python api.py
+```
+
+**Terminal 2 - Frontend:**
+Open `frontend/index.html` in your browser
+
+## API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/stocks` | GET | List all stocks |
+| `/api/predictions` | GET | Get all predictions |
+| `/api/prediction/{ticker}` | GET | Get specific prediction |
+| `/api/news` | GET | Get news articles |
+| `/api/stats` | GET | System statistics |
+| `/api/refresh` | POST | Refresh data |
+
+API Documentation: http://localhost:8000/docs
+
+## Distributed Computing
+
+For cluster deployment, see [docs/DISTRIBUTED-DEMO.md](docs/DISTRIBUTED-DEMO.md)
+
+### Quick Cluster Setup
+
+**Master Node:**
+```bash
+python cluster/cluster_master.py
+```
+
+**Worker Nodes:**
+```bash
+python cluster/cluster_worker.py
+```
+
+**Run Analysis:**
+```bash
+python cluster/distributed_analyze.py
+```
+
+## Configuration
+
+Edit `config.py` to customize:
+- Target stocks
+- News sources
+- Sentiment thresholds
+- Historical data range
+
+## Screenshots
+
+### Dashboard
+- Real-time stock predictions
+- Sentiment analysis charts
+- News feed with sentiment scores
+
+### Predictions
+- BUY/SELL/HOLD recommendations
+- Confidence scores
+- Price predictions
+
+## Technology Stack
+
+**Backend:**
+- FastAPI - Modern Python web framework
+- Pandas - Data processing
+- VADER - Sentiment analysis
+- yfinance - Stock data
+
+**Frontend:**
+- Bootstrap 5 - UI framework
+- Chart.js - Data visualization
+- Font Awesome - Icons
+
+**Distributed:**
+- Custom master-worker architecture
+- HTTP-based communication
+- Parallel processing
+
+## Development
+
+### Run Backend Only
+```bash
+cd backend
+python api.py
+```
+
+### Run Data Collection Only
+```bash
+python scripts/run_prototype.py
+```
+
+### Run Distributed Analysis
+```bash
+python cluster/distributed_analyze.py
+```
+
 ## Data Files
 
-- `data/stock_prices.csv` - Stock price data
-- `data/processed_news.csv` - Processed news with sentiment
+Generated in `data/` folder:
+- `prototype_stocks.csv` - Stock price data
+- `prototype_news.csv` - News articles
+- `sentiment_analysis.csv` - Sentiment scores
+- `predictions.csv` - Stock predictions
 
-## Troubleshooting
+## Requirements
 
-### Workers can't connect
+- Python 3.11+
+- Internet connection (for data fetching)
+- Modern web browser
 
-1. Check master IP: `ipconfig` (Windows) or `ifconfig` (Linux)
-2. Update `MASTER_URL` in worker
-3. Check firewall allows port 8000
+## License
 
-### No results
+MIT
 
-1. Check workers registered: `curl http://YOUR_IP:8000/workers`
-2. Check master logs: `docker logs stock-master`
-3. Ensure data files exist in `data/` folder
+## Authors
+
+Basabjeet Deb
+
+## Acknowledgments
+
+- VADER Sentiment Analysis
+- Yahoo Finance API
+- News sources: CNBC, Yahoo Finance, Google News
