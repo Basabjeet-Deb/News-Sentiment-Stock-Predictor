@@ -49,39 +49,87 @@ python scripts/run_prototype.py
 ```
 
 This will:
-- Fetch stock data for 10 major stocks
-- Scrape targeted news articles
+- Fetch stock data for 10 major stocks (1 year history)
+- Scrape targeted news articles from multiple sources
 - Analyze sentiment and generate predictions
+- Save results to `data/` folder
 
 ### 3. Start Application
 
+**Option A - Automatic (Windows):**
 ```bash
 start_app.bat
 ```
 
-Or manually:
+**Option B - Manual:**
 
-**Terminal 1 - Backend:**
+Terminal 1 - Start Backend:
 ```bash
 cd backend
 python api.py
 ```
 
-**Terminal 2 - Frontend:**
-Open `frontend/index.html` in your browser
+Terminal 2 - Open Frontend:
+```bash
+# Open frontend/index.html in your browser
+start frontend/index.html
+```
+
+Or simply double-click `frontend/index.html`
+
+### 4. Access the Application
+
+- **Frontend Dashboard**: `frontend/index.html` (opens in browser)
+- **Backend API**: http://localhost:8000
+- **API Documentation**: http://localhost:8000/docs
+- **API Endpoints**: http://localhost:8000/api/
+
+### 5. View Results
+
+The dashboard shows:
+- 📊 Real-time statistics (stocks, signals, news count)
+- 📈 Interactive charts (recommendations, sentiment analysis)
+- 💹 Stock predictions with BUY/SELL/HOLD recommendations
+- 📰 Latest news feed with sentiment scores
+- 🎯 Confidence scores for each prediction
 
 ## API Endpoints
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/stocks` | GET | List all stocks |
-| `/api/predictions` | GET | Get all predictions |
-| `/api/prediction/{ticker}` | GET | Get specific prediction |
-| `/api/news` | GET | Get news articles |
-| `/api/stats` | GET | System statistics |
-| `/api/refresh` | POST | Refresh data |
+Base URL: `http://localhost:8000/api`
 
-API Documentation: http://localhost:8000/docs
+| Endpoint | Method | Description | Example |
+|----------|--------|-------------|---------|
+| `/api/stocks` | GET | List all stocks with current prices | `curl http://localhost:8000/api/stocks` |
+| `/api/predictions` | GET | Get all predictions | `curl http://localhost:8000/api/predictions` |
+| `/api/prediction/{ticker}` | GET | Get specific stock prediction | `curl http://localhost:8000/api/prediction/AAPL` |
+| `/api/news` | GET | Get news articles (optional: ?ticker=AAPL&limit=20) | `curl http://localhost:8000/api/news?ticker=AAPL` |
+| `/api/stats` | GET | System statistics | `curl http://localhost:8000/api/stats` |
+| `/api/chart/{ticker}` | GET | Historical price data for charts | `curl http://localhost:8000/api/chart/AAPL?days=30` |
+| `/api/refresh` | POST | Refresh data in background | `curl -X POST http://localhost:8000/api/refresh` |
+
+**Interactive API Documentation**: http://localhost:8000/docs
+
+### Example API Calls
+
+**Get all predictions:**
+```bash
+curl http://localhost:8000/api/predictions
+```
+
+**Get specific stock:**
+```bash
+curl http://localhost:8000/api/prediction/AAPL
+```
+
+**Get news for Tesla:**
+```bash
+curl http://localhost:8000/api/news?ticker=TSLA&limit=10
+```
+
+**Get system stats:**
+```bash
+curl http://localhost:8000/api/stats
+```
 
 ## Distributed Computing
 
