@@ -1,20 +1,19 @@
-# Web framework
+# Cluster System
+fastapi>=0.104.0
+uvicorn>=0.24.0
 flask>=3.0.0
-flask-cors>=4.0.0
-
-# HTTP client
 requests>=2.31.0
 
-# Data processing
+# Data Processing
 pandas>=2.0.0
 numpy>=1.24.0
 
 # Sentiment Analysis
 vaderSentiment>=3.3.2
 
-# Stock data
+# Stock Data
 yfinance>=0.2.0
 
-# Web scraping
+# Web Scraping
 beautifulsoup4>=4.12.0
 lxml>=4.9.0

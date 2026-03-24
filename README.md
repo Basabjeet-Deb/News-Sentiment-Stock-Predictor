@@ -1,184 +1,111 @@
-# Distributed News Sentiment Analysis Cluster
+# News Sentiment Stock Predictor - Distributed System
 
-A Python-based distributed computing system where a master node coordinates sentiment analysis tasks across multiple worker nodes.
+Distributed stock prediction system using news sentiment analysis on local network.
 
 ## Architecture
 
 ```
-┌─────────────────┐
-│  Master Node    │ (You)
-│  Port: 5000     │
-└────────┬────────┘
-         │
-    ┌────┴────┬────────┬────────┐
-    │         │        │        │
-┌───▼───┐ ┌──▼───┐ ┌──▼───┐ ┌──▼───┐
-│Worker1│ │Worker2│ │Worker3│ │Worker4│
-│ 5000  │ │ 5000  │ │ 5000  │ │ 5000  │
-└───────┘ └──────┘ └──────┘ └──────┘
-(Teammates' machines)
+Master Node (Docker)          Worker Nodes (Local Network)
+┌──────────────┐             ┌──────────────┐
+│   Master     │◄────────────│   Worker 1   │
+│  Port 8000   │             │  Port 5000   │
+└──────────────┘             └──────────────┘
+       ▲                     ┌──────────────┐
+       └─────────────────────│   Worker 2   │
+                             │  Port 5001   │
+                             └──────────────┘
+                             ┌──────────────┐
+                             │   Worker 3   │
+                             │  Port 5002   │
+                             └──────────────┘
 ```
 
-## Setup Instructions
+## Setup
 
-### For Master (You)
+### 1. Start Master (Docker)
 
-1. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
+```bash
+docker-compose up -d
+```
 
-2. **Start the master node:**
-   ```bash
-   start-master-local.bat
-   ```
-   Or directly:
-   ```bash
-   python master_node.py
-   ```
+Master runs at `http://YOUR_IP:8000`
 
-3. **Access the dashboard:**
-   - Open browser: http://localhost:5000
-   - You'll see connected workers and processing status
+### 2. Start Workers (On Teammate Machines)
 
-4. **Share your IP with teammates:**
-   - Share this URL: `http://192.168.1.2:5000`
+Each teammate runs:
 
-### For Workers (Teammates)
+```bash
+# Set master IP
+$env:MASTER_URL="http://192.168.1.100:8000"
 
-1. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
+# Start worker
+python worker.py
+```
 
-2. **Update worker configuration:**
-   - Open `worker_node.py`
-   - Change line: `MASTER_URL = 'http://192.168.1.2:5000'`
-   - Replace with actual master IP
+Or with custom settings:
 
-3. **Start the worker node:**
-   ```bash
-   start-worker-local.bat
-   ```
-   Or directly:
-   ```bash
-   python worker_node.py
-   ```
+```bash
+$env:MASTER_URL="http://192.168.1.100:8000"
+$env:WORKER_ID="worker1"
+$env:WORKER_PORT="5000"
+python worker.py
+```
 
-4. **Verify connection:**
-   - Worker will automatically register with master
-   - Check master dashboard to see your worker listed
+### 3. Start Processing
 
-## How It Works
+```bash
+curl -X POST http://YOUR_IP:8000/start
+```
 
-1. **Master Node:**
-   - Provides web dashboard at port 5000
-   - Accepts worker registrations
-   - Distributes news data to workers
-   - Collects and aggregates results
+### 4. Get Results
 
-2. **Worker Nodes:**
-   - Register with master on startup
-   - Send heartbeat every 10 seconds
-   - Process sentiment analysis tasks
-   - Submit results back to master
+```bash
+curl http://YOUR_IP:8000/results
+```
 
-3. **Processing Flow:**
-   - Master loads news data
-   - Splits data into chunks
-   - Distributes chunks to available workers
-   - Workers analyze sentiment using VADER
-   - Master aggregates results and displays statistics
+## API Endpoints
 
-## Usage
+### Master Node
 
-### Start Processing
+- `GET /` - Status
+- `POST /register` - Worker registration
+- `POST /start` - Start processing
+- `GET /results` - Get all predictions
+- `GET /results/{ticker}` - Get specific stock
+- `GET /workers` - Worker status
 
-1. Ensure workers are connected (check dashboard)
-2. Click "Start Processing" on master dashboard
-3. Watch results appear in real-time
+### Worker Node
 
-### Monitor Cluster
+- `GET /` - Worker status
+- `POST /process` - Process stocks (called by master)
 
-- **Master Dashboard:** http://localhost:5000
-- **Worker Status:** http://localhost:5000 (on worker machine)
-- **View Logs:** Check terminal output
+## Stock Distribution
 
-### Stop Nodes
+- Worker 1: 17 stocks (AAPL, AMD, AMZN, ...)
+- Worker 2: 17 stocks (MCD, MMM, MSFT, ...)
+- Worker 3: 16 stocks (NFLX, INTC, IBM, ...)
 
-Press `Ctrl+C` in the terminal running the node
+## Requirements
 
-## Data
+```bash
+pip install -r requirements.txt
+```
 
-Place your news data in `data/gdelt_english_news.csv`
+## Data Files
 
-If no data file exists, the system uses sample news headlines.
+- `data/stock_prices.csv` - Stock price data
+- `data/processed_news.csv` - Processed news with sentiment
 
 ## Troubleshooting
 
-### Workers can't connect to master
+### Workers can't connect
 
-1. Check firewall settings - allow port 5000
-2. Verify master IP address is correct
-3. Ensure both machines are on same network
-4. Check master is running: `docker ps`
+1. Check master IP: `ipconfig` (Windows) or `ifconfig` (Linux)
+2. Update `MASTER_URL` in worker
+3. Check firewall allows port 8000
 
-### Worker shows as offline
+### No results
 
-1. Check worker logs: `docker-compose -f docker-compose-worker.yml logs`
-2. Verify MASTER_URL is correct in worker_node.py
-3. Restart worker: `docker-compose -f docker-compose-worker.yml restart`
-
-### No results appearing
-
-1. Check if workers are online in dashboard
-2. Verify data file exists or sample data is being used
-3. Check master logs for errors
-
-## Network Requirements
-
-- Master and workers must be on the same network (or have network connectivity)
-- Port 5000 must be accessible on master machine
-- Firewall must allow incoming connections on port 5000
-
-## Commands Reference
-
-```bash
-# Build images
-docker-compose -f docker-compose-master.yml build
-docker-compose -f docker-compose-worker.yml build
-
-# Start nodes
-docker-compose -f docker-compose-master.yml up -d
-docker-compose -f docker-compose-worker.yml up -d
-
-# View logs
-docker-compose -f docker-compose-master.yml logs -f
-docker-compose -f docker-compose-worker.yml logs -f
-
-# Stop nodes
-docker-compose -f docker-compose-master.yml down
-docker-compose -f docker-compose-worker.yml down
-
-# Restart nodes
-docker-compose -f docker-compose-master.yml restart
-docker-compose -f docker-compose-worker.yml restart
-```
-
-## Features
-
-- ✅ Real-time worker registration
-- ✅ Automatic heartbeat monitoring
-- ✅ Distributed sentiment analysis
-- ✅ Web-based dashboard
-- ✅ Result aggregation
-- ✅ Task distribution
-- ✅ Worker health monitoring
-
-## Tech Stack
-
-- **Python 3.11**
-- **Flask** - Web framework
-- **Docker** - Containerization
-- **VADER** - Sentiment analysis
-- **Pandas** - Data processing
+1. Check workers registered: `curl http://YOUR_IP:8000/workers`
+2. Check master logs: `docker logs stock-master`
+3. Ensure data files exist in `data/` folder
