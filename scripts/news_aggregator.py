@@ -195,8 +195,9 @@ class NewsAggregator:
         
         news = []
         
-        # Combine top stocks and topics
-        queries = stocks[:3] + topics[:2]  # Very limited due to daily cap
+        # Increase queries to use more of the daily limit (25 requests/day)
+        # Use top 15 stocks + 5 topics = 20 queries (leaving 5 for other uses)
+        queries = stocks[:15] + topics[:5]
         
         for query in queries:
             try:
@@ -205,7 +206,8 @@ class NewsAggregator:
                     'tickers': query if query in stocks else None,
                     'topics': query if query in topics else None,
                     'apikey': config.ALPHA_VANTAGE_KEY,
-                    'limit': 50,
+                    'limit': 200,  # Increased from 50 to 200
+                    'sort': 'LATEST',
                 }
                 
                 # Remove None values
@@ -213,7 +215,13 @@ class NewsAggregator:
                 
                 response = requests.get(config.API_ENDPOINTS['alphavantage'], params=params, timeout=15)
                 response.raise_for_status()
-                data = response.json()
+                
+                # Try to parse JSON
+                try:
+                    data = response.json()
+                except:
+                    print(f"  Alpha Vantage: Invalid JSON response for {query}")
+                    continue
                 
                 # Check if response has error message
                 if isinstance(data, dict) and 'Error Message' in data:
@@ -222,10 +230,20 @@ class NewsAggregator:
                 
                 if isinstance(data, dict) and 'Information' in data:
                     print(f"  Alpha Vantage rate limit: {data['Information']}")
-                    continue
+                    break  # Stop if we hit rate limit
                 
-                for article in data.get('feed', [])[:20]:
-                    if isinstance(article, dict):  # Make sure it's a dictionary
+                if isinstance(data, dict) and 'Note' in data:
+                    print(f"  Alpha Vantage note: {data['Note']}")
+                    break  # Stop if we hit rate limit
+                
+                # Get all articles from feed (not just 20)
+                feed_data = data.get('feed', [])
+                if not feed_data:
+                    continue
+                    
+                for article in feed_data:
+                    if not isinstance(article, dict):  # Skip if not a dictionary
+                        continue
                         news.append({
                             'source': 'AlphaVantage',
                             'title': article.get('title', ''),
@@ -253,23 +271,37 @@ class NewsAggregator:
         
         news = []
         
-        # Fetch general finance news
-        try:
-            feed = feedparser.parse('https://finance.yahoo.com/news/rssindex')
-            for entry in feed.entries[:30]:
-                news.append({
-                    'source': 'Yahoo Finance',
-                    'title': entry.get('title', ''),
-                    'description': entry.get('summary', ''),
-                    'content': entry.get('summary', ''),
-                    'url': entry.get('link', ''),
-                    'published_at': entry.get('published', ''),
-                    'author': 'Yahoo Finance',
-                    'ticker': self._extract_ticker(entry.get('title', ''), stocks),
-                    'topics': [],
-                })
-        except Exception as e:
-            print(f"Yahoo RSS error: {e}")
+        # Multiple Yahoo Finance RSS feeds for better coverage
+        rss_feeds = [
+            'https://finance.yahoo.com/news/rssindex',  # General news
+            'https://feeds.finance.yahoo.com/rss/2.0/headline?s=^GSPC&region=US&lang=en-US',  # S&P 500
+            'https://feeds.finance.yahoo.com/rss/2.0/headline?s=^DJI&region=US&lang=en-US',  # Dow Jones
+            'https://feeds.finance.yahoo.com/rss/2.0/headline?s=^IXIC&region=US&lang=en-US',  # NASDAQ
+        ]
+        
+        # Also add RSS feeds for top stocks
+        for ticker in stocks[:20]:  # Top 20 stocks
+            rss_feeds.append(f'https://feeds.finance.yahoo.com/rss/2.0/headline?s={ticker}&region=US&lang=en-US')
+        
+        for feed_url in rss_feeds:
+            try:
+                feed = feedparser.parse(feed_url)
+                for entry in feed.entries[:10]:  # 10 articles per feed
+                    news.append({
+                        'source': 'Yahoo Finance',
+                        'title': entry.get('title', ''),
+                        'description': entry.get('summary', ''),
+                        'content': entry.get('summary', ''),
+                        'url': entry.get('link', ''),
+                        'published_at': entry.get('published', ''),
+                        'author': 'Yahoo Finance',
+                        'ticker': self._extract_ticker(entry.get('title', ''), stocks),
+                        'topics': [],
+                    })
+                time.sleep(0.5)  # Small delay between feeds
+            except Exception as e:
+                print(f"Yahoo RSS error for {feed_url}: {e}")
+                continue
         
         return news
     
@@ -283,15 +315,50 @@ class NewsAggregator:
         
         news = []
         
-        # Marketaux supports multiple symbols in one request
-        symbols = ','.join(stocks[:10])
+        # Make multiple requests to get more articles
+        # Split stocks into batches of 10
+        stock_batches = [stocks[i:i+10] for i in range(0, min(len(stocks), 50), 10)]  # 5 batches max
         
+        for batch in stock_batches:
+            try:
+                symbols = ','.join(batch)
+                params = {
+                    'api_token': config.MARKETAUX_KEY,
+                    'symbols': symbols,
+                    'limit': 50,
+                    'language': 'en',
+                }
+                
+                response = requests.get(config.API_ENDPOINTS['marketaux'], params=params, timeout=10)
+                response.raise_for_status()
+                data = response.json()
+                
+                for article in data.get('data', []):
+                    news.append({
+                        'source': 'Marketaux',
+                        'title': article.get('title', ''),
+                        'description': article.get('description', ''),
+                        'content': article.get('snippet', ''),
+                        'url': article.get('url', ''),
+                        'published_at': article.get('published_at', ''),
+                        'author': article.get('source', 'Unknown'),
+                        'ticker': ','.join([e.get('symbol', '') for e in article.get('entities', []) if e.get('type') == 'equity']),
+                        'topics': [e.get('name', '') for e in article.get('entities', []) if e.get('type') == 'topic'],
+                    })
+                
+                time.sleep(1)  # Delay between batches
+                
+            except Exception as e:
+                print(f"Marketaux error for batch: {e}")
+                continue
+        
+        # Also fetch general market news without specific symbols
         try:
             params = {
                 'api_token': config.MARKETAUX_KEY,
-                'symbols': symbols,
                 'limit': 50,
                 'language': 'en',
+                'filter_entities': 'true',
             }
             
             response = requests.get(config.API_ENDPOINTS['marketaux'], params=params, timeout=10)
@@ -311,7 +378,7 @@ class NewsAggregator:
                     'topics': [e.get('name', '') for e in article.get('entities', []) if e.get('type') == 'topic'],
                 })
         except Exception as e:
-            print(f"Marketaux error: {e}")
+            print(f"Marketaux general news error: {e}")
         
         return news
     
