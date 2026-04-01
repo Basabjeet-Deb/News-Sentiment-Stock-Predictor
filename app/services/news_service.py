@@ -11,8 +11,9 @@ import pandas as pd
 # Add parent directory to import existing scripts
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from scripts.enhanced_news_fetcher import EnhancedNewsFetcher
-from scripts.free_news_fetcher import FreeNewsFetcher
+from pipeline.news_fetcher import EnhancedNewsFetcher
+# FreeNewsFetcher removed - using Scrapy spider instead
+# from scripts.free_news_fetcher import FreeNewsFetcher
 from app.core.config import get_settings
 
 
@@ -21,7 +22,7 @@ class NewsService:
     
     def __init__(self):
         self.enhanced_fetcher = EnhancedNewsFetcher()
-        self.free_fetcher = FreeNewsFetcher()
+        # self.free_fetcher = FreeNewsFetcher()  # Removed - using Scrapy
         self._cache: List[Dict] = []
         self._cache_timestamp: Optional[datetime] = None
         self.settings = get_settings()

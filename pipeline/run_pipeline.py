@@ -7,9 +7,9 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from scripts.enhanced_news_fetcher import EnhancedNewsFetcher
-from scripts.sentiment_analyzer import SentimentAnalyzer
-from scripts.stock_price_fetcher import StockPriceFetcher
+from pipeline.news_fetcher import EnhancedNewsFetcher
+from pipeline.sentiment_analyzer import SentimentAnalyzer
+from pipeline.price_fetcher import StockPriceFetcher
 import config
 import pandas as pd
 from datetime import datetime
@@ -131,22 +131,48 @@ class StockPredictionPipeline:
         """
         Calculate overall prediction score (-1 to 1)
         
-        Combines:
-        - News sentiment (weighted heavily)
+        Enhanced algorithm combining:
+        - News sentiment (weighted heavily with amplification)
         - Price momentum (recent change)
-        - Number of articles (more = higher confidence)
+        - News volume (more articles = stronger signal)
+        - Sentiment strength (strong positive/negative = higher confidence)
         """
-        # Sentiment component (60% weight)
-        sentiment_score = sentiment_summary.get('avg_sentiment', 0) * 0.6
-        
-        # Price momentum component (30% weight)
-        price_change = price_info.get('change_percent', 0)
-        # Normalize to -1 to 1 range (assuming ±10% is extreme)
-        price_momentum = max(min(price_change / 10, 1), -1) * 0.3
-        
-        # Volume/confidence component (10% weight)
         article_count = sentiment_summary.get('article_count', 0)
-        volume_boost = min(article_count / 20, 1) * 0.1
+        avg_sentiment = sentiment_summary.get('avg_sentiment', 0)
+        positive_count = sentiment_summary.get('positive_count', 0)
+        negative_count = sentiment_summary.get('negative_count', 0)
+        
+        # Sentiment component (70% weight) - amplified for stronger signals
+        if abs(avg_sentiment) > 0.3:
+            # Strong sentiment - amplify it
+            sentiment_score = avg_sentiment * 1.5 * 0.7
+        else:
+            sentiment_score = avg_sentiment * 0.7
+        
+        # Price momentum component (20% weight)
+        price_change = price_info.get('change_percent', 0)
+        # Normalize to -1 to 1 range (±5% is significant)
+        price_momentum = max(min(price_change / 5, 1), -1) * 0.2
+        
+        # News volume boost (10% weight) - more articles = stronger signal
+        if article_count >= 50:
+            volume_boost = 0.1
+        elif article_count >= 20:
+            volume_boost = 0.08
+        elif article_count >= 10:
+            volume_boost = 0.05
+        elif article_count >= 5:
+            volume_boost = 0.03
+        else:
+            volume_boost = 0.01
+        
+        # Apply volume boost in direction of sentiment
+        if avg_sentiment > 0:
+            volume_boost = volume_boost
+        elif avg_sentiment < 0:
+            volume_boost = -volume_boost
+        else:
+            volume_boost = 0
         
         total_score = sentiment_score + price_momentum + volume_boost
         

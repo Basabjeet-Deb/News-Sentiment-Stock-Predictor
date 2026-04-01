@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     ALPHA_VANTAGE_KEY: Optional[str] = None
     FINNHUB_KEY: Optional[str] = None
     MARKETAUX_KEY: Optional[str] = None
+    FMP_API_KEY: Optional[str] = None  # Financial Modeling Prep
     
     # CORS
     CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8000", "*"]

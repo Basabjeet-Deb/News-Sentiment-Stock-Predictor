@@ -11,7 +11,7 @@ import pandas as pd
 # Add parent directory to import existing scripts
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from scripts.stock_price_fetcher import StockPriceFetcher as BasePriceFetcher
+from pipeline.price_fetcher import StockPriceFetcher as BasePriceFetcher
 from app.core.config import get_settings, STOCK_TICKERS
 
 

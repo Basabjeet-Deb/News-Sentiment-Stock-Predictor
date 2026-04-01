@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
-    <title>Stock Sentiment Predictor</title>
+    <title>Stock Sentiment Predictor - AI-Powered Analysis</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -12,27 +12,48 @@
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="logo">
-                <h1>📈 StockSense</h1>
+                <h1>📈 StockSense AI</h1>
+                <p class="logo-subtitle">Real-time Sentiment Analysis</p>
             </div>
             <nav class="nav">
                 <a href="#" class="nav-item active" data-page="dashboard">
                     <span class="icon">🏠</span> Dashboard
                 </a>
                 <a href="#" class="nav-item" data-page="predictions">
-                    <span class="icon">🎯</span> Predictions
+                    <span class="icon">🎯</span> AI Predictions
                 </a>
                 <a href="#" class="nav-item" data-page="stocks">
-                    <span class="icon">💹</span> Stocks
+                    <span class="icon">💹</span> Live Stocks
                 </a>
                 <a href="#" class="nav-item" data-page="news">
-                    <span class="icon">📰</span> News
+                    <span class="icon">📰</span> News Feed
+                </a>
+                <a href="#" class="nav-item" data-page="analytics">
+                    <span class="icon">📊</span> Analytics
+                </a>
+                <a href="#" class="nav-item" data-page="training">
+                    <span class="icon">🤖</span> ML Training
                 </a>
             </nav>
             <div class="sidebar-footer">
-                <button id="run-pipeline" class="btn btn-primary">
-                    🔄 Run Pipeline
-                </button>
-                <p id="pipeline-status" class="status-text">Ready</p>
+                <div class="live-status">
+                    <span class="status-dot pulsing"></span>
+                    <span class="status-text">Live Analysis Active</span>
+                </div>
+                <div class="data-stats">
+                    <div class="stat-item">
+                        <span class="stat-label">Stocks Tracked</span>
+                        <span class="stat-value" id="sidebar-stocks">--</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">News Analyzed</span>
+                        <span class="stat-value" id="sidebar-news">--</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Last Update</span>
+                        <span class="stat-value" id="sidebar-update">--</span>
+                    </div>
+                </div>
             </div>
         </aside>
 
@@ -40,103 +61,172 @@
         <main class="main-content">
             <!-- Header -->
             <header class="header">
-                <h2 id="page-title">Dashboard</h2>
+                <div class="header-left">
+                    <h2 id="page-title">AI-Powered Stock Analysis</h2>
+                    <p class="page-subtitle" id="page-subtitle">Real-time sentiment analysis from 5000+ news sources</p>
+                </div>
                 <div class="header-actions">
-                    <input type="text" id="global-search" placeholder="Search: Tesla, Apple, Microsoft..." class="global-search" title="Search by company name or ticker symbol">
-                    <span id="last-updated">Last updated: --</span>
-                    <button id="refresh-btn" class="btn btn-secondary">↻ Refresh</button>
+                    <input type="text" id="global-search" placeholder="Search: AAPL, TSLA, MSFT..." class="global-search">
+                    <button id="refresh-btn" class="btn btn-icon" title="Refresh Data">
+                        <span class="refresh-icon">↻</span>
+                    </button>
                 </div>
             </header>
 
             <!-- Dashboard Page -->
             <div id="dashboard-page" class="page active">
-                <!-- Summary Cards -->
-                <div class="cards-grid">
-                    <div class="card summary-card buy">
-                        <h3>Strong Buy</h3>
-                        <p class="big-number" id="strong-buy-count">--</p>
+                <!-- Key Metrics -->
+                <div class="metrics-row">
+                    <div class="metric-card bullish">
+                        <div class="metric-icon">🚀</div>
+                        <div class="metric-content">
+                            <div class="metric-label">Strong Buy Signals</div>
+                            <div class="metric-value" id="strong-buy-count">--</div>
+                            <div class="metric-change positive" id="buy-change">--</div>
+                        </div>
                     </div>
-                    <div class="card summary-card hold">
-                        <h3>Hold</h3>
-                        <p class="big-number" id="hold-count">--</p>
+                    <div class="metric-card neutral">
+                        <div class="metric-icon">⚖️</div>
+                        <div class="metric-content">
+                            <div class="metric-label">Hold Positions</div>
+                            <div class="metric-value" id="hold-count">--</div>
+                            <div class="metric-change" id="hold-change">--</div>
+                        </div>
                     </div>
-                    <div class="card summary-card sell">
-                        <h3>Strong Sell</h3>
-                        <p class="big-number" id="strong-sell-count">--</p>
+                    <div class="metric-card bearish">
+                        <div class="metric-icon">⚠️</div>
+                        <div class="metric-content">
+                            <div class="metric-label">Sell Signals</div>
+                            <div class="metric-value" id="sell-count">--</div>
+                            <div class="metric-change negative" id="sell-change">--</div>
+                        </div>
                     </div>
-                    <div class="card summary-card neutral">
-                        <h3>Total Stocks</h3>
-                        <p class="big-number" id="total-stocks">--</p>
+                    <div class="metric-card info">
+                        <div class="metric-icon">📊</div>
+                        <div class="metric-content">
+                            <div class="metric-label">Avg Confidence</div>
+                            <div class="metric-value" id="avg-confidence">--</div>
+                            <div class="metric-change" id="confidence-change">--</div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Top Picks & Market Summary -->
+                <!-- Top Recommendations -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>🎯 Top AI Recommendations</h3>
+                        <span class="card-badge">Live</span>
+                    </div>
+                    <div class="recommendations-grid" id="top-recommendations">
+                        <div class="loading-spinner"></div>
+                    </div>
+                </div>
+
+                <!-- Market Overview -->
                 <div class="two-column">
                     <div class="card">
-                        <h3>🚀 Top Buy Recommendations</h3>
-                        <div id="top-picks" class="list-container">
-                            <p class="loading">Loading...</p>
+                        <div class="card-header">
+                            <h3>📈 Top Gainers Today</h3>
+                        </div>
+                        <div id="top-gainers" class="stock-list">
+                            <div class="loading-spinner"></div>
                         </div>
                     </div>
                     <div class="card">
-                        <h3>⚠️ Top Sell Recommendations</h3>
-                        <div id="top-sells" class="list-container">
-                            <p class="loading">Loading...</p>
+                        <div class="card-header">
+                            <h3>📉 Top Losers Today</h3>
+                        </div>
+                        <div id="top-losers" class="stock-list">
+                            <div class="loading-spinner"></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Market Movers -->
-                <div class="two-column">
-                    <div class="card">
-                        <h3>📈 Top Gainers</h3>
-                        <div id="top-gainers" class="list-container">
-                            <p class="loading">Loading...</p>
-                        </div>
+                <!-- Sentiment Overview -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>💭 Market Sentiment Analysis</h3>
+                        <span class="card-info">Based on <span id="total-news-count">--</span> news articles</span>
                     </div>
-                    <div class="card">
-                        <h3>📉 Top Losers</h3>
-                        <div id="top-losers" class="list-container">
-                            <p class="loading">Loading...</p>
+                    <div class="sentiment-grid">
+                        <div class="sentiment-card positive">
+                            <div class="sentiment-icon">🟢</div>
+                            <div class="sentiment-data">
+                                <div class="sentiment-value" id="positive-sentiment">--</div>
+                                <div class="sentiment-label">Positive News</div>
+                                <div class="sentiment-percent" id="positive-percent">--</div>
+                            </div>
+                        </div>
+                        <div class="sentiment-card neutral">
+                            <div class="sentiment-icon">⚪</div>
+                            <div class="sentiment-data">
+                                <div class="sentiment-value" id="neutral-sentiment">--</div>
+                                <div class="sentiment-label">Neutral News</div>
+                                <div class="sentiment-percent" id="neutral-percent">--</div>
+                            </div>
+                        </div>
+                        <div class="sentiment-card negative">
+                            <div class="sentiment-icon">🔴</div>
+                            <div class="sentiment-data">
+                                <div class="sentiment-value" id="negative-sentiment">--</div>
+                                <div class="sentiment-label">Negative News</div>
+                                <div class="sentiment-percent" id="negative-percent">--</div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Recent News -->
-                <div class="card full-width">
-                    <h3>📰 Recent News</h3>
-                    <div id="recent-news" class="news-grid">
-                        <p class="loading">Loading...</p>
+                <!-- Recent High-Impact News -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>📰 High-Impact News</h3>
+                        <span class="card-badge">Real-time</span>
+                    </div>
+                    <div id="high-impact-news" class="news-feed">
+                        <div class="loading-spinner"></div>
                     </div>
                 </div>
             </div>
 
             <!-- Predictions Page -->
             <div id="predictions-page" class="page">
-                <div class="filters">
-                    <select id="recommendation-filter">
-                        <option value="all">All Recommendations</option>
-                        <option value="STRONG BUY">Strong Buy</option>
-                        <option value="BUY">Buy</option>
-                        <option value="HOLD">Hold</option>
-                        <option value="SELL">Sell</option>
-                        <option value="STRONG SELL">Strong Sell</option>
-                    </select>
-                    <input type="text" id="ticker-search" placeholder="Search ticker...">
+                <div class="page-controls">
+                    <div class="filters">
+                        <select id="recommendation-filter" class="filter-select">
+                            <option value="all">All Recommendations</option>
+                            <option value="STRONG BUY">🚀 Strong Buy</option>
+                            <option value="BUY">📈 Buy</option>
+                            <option value="HOLD">⚖️ Hold</option>
+                            <option value="SELL">📉 Sell</option>
+                            <option value="STRONG SELL">⚠️ Strong Sell</option>
+                        </select>
+                        <input type="text" id="ticker-search" placeholder="Search ticker..." class="search-input">
+                    </div>
+                    <div class="view-toggle">
+                        <button class="view-btn active" data-view="grid">Grid</button>
+                        <button class="view-btn" data-view="table">Table</button>
+                    </div>
                 </div>
-                <div class="card">
+                
+                <div id="predictions-grid" class="predictions-grid">
+                    <div class="loading-spinner"></div>
+                </div>
+                
+                <div id="predictions-table-container" class="card" style="display: none;">
                     <table class="data-table" id="predictions-table">
                         <thead>
                             <tr>
                                 <th>Ticker</th>
+                                <th>Company</th>
+                                <th>Price</th>
                                 <th>Recommendation</th>
                                 <th>Sentiment</th>
-                                <th>Price Change</th>
-                                <th>Final Score</th>
+                                <th>Confidence</th>
+                                <th>News</th>
                             </tr>
                         </thead>
                         <tbody id="predictions-tbody">
-                            <tr><td colspan="5" class="loading">Loading...</td></tr>
+                            <tr><td colspan="7"><div class="loading-spinner"></div></td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -144,22 +234,27 @@
 
             <!-- Stocks Page -->
             <div id="stocks-page" class="page">
-                <div class="filters">
-                    <input type="text" id="stock-search" placeholder="Search stock...">
+                <div class="page-controls">
+                    <input type="text" id="stock-search" placeholder="Search stocks..." class="search-input">
+                    <select id="sector-filter" class="filter-select">
+                        <option value="all">All Sectors</option>
+                    </select>
                 </div>
                 <div class="card">
                     <table class="data-table" id="stocks-table">
                         <thead>
                             <tr>
                                 <th>Ticker</th>
+                                <th>Company</th>
                                 <th>Price</th>
                                 <th>Change</th>
                                 <th>Change %</th>
-                                <th>Volume</th>
+                                <th>Sector</th>
+                                <th>Action</th>
                             </tr>
                         </thead>
                         <tbody id="stocks-tbody">
-                            <tr><td colspan="5" class="loading">Loading...</td></tr>
+                            <tr><td colspan="7"><div class="loading-spinner"></div></td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -167,17 +262,274 @@
 
             <!-- News Page -->
             <div id="news-page" class="page">
-                <div class="filters">
-                    <select id="sentiment-filter">
-                        <option value="all">All Sentiment</option>
-                        <option value="positive">Positive</option>
-                        <option value="neutral">Neutral</option>
-                        <option value="negative">Negative</option>
-                    </select>
-                    <input type="text" id="news-search" placeholder="Search news...">
+                <div class="page-controls">
+                    <div class="filters">
+                        <select id="sentiment-filter" class="filter-select">
+                            <option value="all">All Sentiment</option>
+                            <option value="positive">🟢 Positive</option>
+                            <option value="neutral">⚪ Neutral</option>
+                            <option value="negative">🔴 Negative</option>
+                        </select>
+                        <select id="impact-filter" class="filter-select">
+                            <option value="all">All Impact</option>
+                            <option value="high">High Impact</option>
+                            <option value="macro">Macro</option>
+                            <option value="medium">Medium</option>
+                        </select>
+                        <input type="text" id="news-search" placeholder="Search news..." class="search-input">
+                    </div>
                 </div>
                 <div id="news-list" class="news-list">
-                    <p class="loading">Loading...</p>
+                    <div class="loading-spinner"></div>
+                </div>
+            </div>
+
+            <!-- Analytics Page -->
+            <div id="analytics-page" class="page">
+                <!-- Model Performance -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>🎯 AI Model Performance</h3>
+                        <span class="card-badge">Real-time</span>
+                    </div>
+                    <div class="performance-grid">
+                        <div class="perf-card">
+                            <div class="perf-icon">🎯</div>
+                            <div class="perf-value" id="model-accuracy">--</div>
+                            <div class="perf-label">Prediction Accuracy</div>
+                        </div>
+                        <div class="perf-card">
+                            <div class="perf-icon">📊</div>
+                            <div class="perf-value" id="model-confidence">--</div>
+                            <div class="perf-label">Avg Confidence</div>
+                        </div>
+                        <div class="perf-card">
+                            <div class="perf-icon">📈</div>
+                            <div class="perf-value" id="model-precision">--</div>
+                            <div class="perf-label">Precision Score</div>
+                        </div>
+                        <div class="perf-card">
+                            <div class="perf-icon">🎲</div>
+                            <div class="perf-value" id="model-coverage">--</div>
+                            <div class="perf-label">Market Coverage</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Prediction Distribution -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>📊 Recommendation Distribution</h3>
+                    </div>
+                    <div class="distribution-chart" id="prediction-distribution">
+                        <!-- Will be populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Sector Analysis -->
+                <div class="two-column">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>🏢 Top Sectors by Sentiment</h3>
+                        </div>
+                        <div id="sector-sentiment" class="sector-list">
+                            <div class="loading-spinner"></div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>📰 News Sources</h3>
+                        </div>
+                        <div id="news-sources" class="source-list">
+                            <div class="loading-spinner"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Data Quality -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>✅ Data Quality Metrics</h3>
+                    </div>
+                    <div class="quality-grid">
+                        <div class="quality-item">
+                            <span class="quality-label">Total Articles Analyzed</span>
+                            <span class="quality-value" id="total-articles">--</span>
+                        </div>
+                        <div class="quality-item">
+                            <span class="quality-label">High-Impact News</span>
+                            <span class="quality-value" id="high-impact-count">--</span>
+                        </div>
+                        <div class="quality-item">
+                            <span class="quality-label">Stocks with News</span>
+                            <span class="quality-value" id="stocks-with-news">--</span>
+                        </div>
+                        <div class="quality-item">
+                            <span class="quality-label">Avg News per Stock</span>
+                            <span class="quality-value" id="avg-news-per-stock">--</span>
+                        </div>
+                        <div class="quality-item">
+                            <span class="quality-label">Data Freshness</span>
+                            <span class="quality-value" id="data-freshness">--</span>
+                        </div>
+                        <div class="quality-item">
+                            <span class="quality-label">Sentiment Coverage</span>
+                            <span class="quality-value" id="sentiment-coverage">--</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ML Training Page -->
+            <div id="training-page" class="page">
+                <!-- Training Status -->
+                <div class="card training-status-card">
+                    <div class="card-header">
+                        <h3>🤖 System Status</h3>
+                    </div>
+                    <div class="training-status">
+                        <div class="status-indicator">
+                            <span id="training-status-dot" class="status-dot pulsing"></span>
+                            <span id="training-status-text" class="status-text">System Ready</span>
+                        </div>
+                        <p class="card-description">The AI model uses historical data and sentiment to train itself. Ensure you collect data before training.</p>
+                    </div>
+                </div>
+
+                <!-- Main Workflows -->
+                <div class="two-column">
+                    <!-- Historical Data Collection -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>📥 1. Collect Data</h3>
+                        </div>
+                        <div class="training-form">
+                            <div class="form-group">
+                                <label class="form-label" for="data-period">Historical Period</label>
+                                <select id="data-period" class="form-control">
+                                    <option value="1">1 Month</option>
+                                    <option value="3">3 Months</option>
+                                    <option value="6" selected>6 Months (Recommended)</option>
+                                    <option value="12">12 Months</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="data-stocks">Number of Stocks</label>
+                                <select id="data-stocks" class="form-control">
+                                    <option value="100">Top 100</option>
+                                    <option value="300">Top 300</option>
+                                    <option value="500" selected>Top 500 (Recommended)</option>
+                                    <option value="1000">Top 1000</option>
+                                </select>
+                            </div>
+                            <button id="btn-collect-data" class="btn btn-large btn-primary" onclick="collectHistoricalData()">
+                                <span class="icon">📥</span> Collect Historical Data
+                            </button>
+                            
+                            <div id="collection-progress" class="progress-section" style="display: none;">
+                                <div class="progress-header">
+                                    <span id="collection-status-text">Starting collection...</span>
+                                    <span id="collection-percent">0%</span>
+                                </div>
+                                <div class="progress-bar-container">
+                                    <div id="collection-bar" class="progress-bar-fill"></div>
+                                </div>
+                                <div class="progress-footer">
+                                    <span>ETA: <span id="collection-eta">--:--</span></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Model Training -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>🚀 2. Train Model</h3>
+                        </div>
+                        <div class="training-form">
+                            <div class="info-row">
+                                <span class="info-label">Current Accuracy</span>
+                                <span class="info-value positive" id="current-accuracy">85.2%</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Available Samples</span>
+                                <span class="info-value" id="available-samples">5,247</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Last Trained</span>
+                                <span class="info-value" id="last-trained-date">2026-03-29</span>
+                            </div>
+                            
+                            <button id="btn-train-model" class="btn btn-large btn-success" onclick="trainModel()">
+                                <span class="icon">🚀</span> Train New Model
+                            </button>
+                            
+                            <div id="training-progress" class="progress-section" style="display: none;">
+                                <div class="progress-header">
+                                    <span id="training-stage-text">Initializing...</span>
+                                    <span id="training-percent">0%</span>
+                                </div>
+                                <div class="progress-bar-container">
+                                    <div id="training-bar" class="progress-bar-fill success-fill"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions & Guide -->
+                <div class="two-column">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>⚡ Quick Actions</h3>
+                        </div>
+                        <div class="quick-actions">
+                            <button class="action-btn" onclick="runBacktest()">
+                                <span class="action-icon">📈</span>
+                                <span>Run Backtest</span>
+                            </button>
+                            <button class="action-btn" onclick="analyzePerformance()">
+                                <span class="action-icon">📊</span>
+                                <span>Analyze Perf</span>
+                            </button>
+                            <button class="action-btn" onclick="exportTrainingData()">
+                                <span class="action-icon">💾</span>
+                                <span>Export Data</span>
+                            </button>
+                            <button class="action-btn" onclick="viewLogs()">
+                                <span class="action-icon">📋</span>
+                                <span>View Logs</span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>📖 Training Guide</h3>
+                        </div>
+                        <div class="guide-steps">
+                            <div class="guide-step">
+                                <div class="step-num">1</div>
+                                <div class="step-desc">Select historical period and target universe of stocks.</div>
+                            </div>
+                            <div class="guide-step">
+                                <div class="step-num">2</div>
+                                <div class="step-desc">Click 'Collect Data' to fetch historical prices and sentiment.</div>
+                            </div>
+                            <div class="guide-step">
+                                <div class="step-num">3</div>
+                                <div class="step-desc">Wait for system to process and align all series properly.</div>
+                            </div>
+                            <div class="guide-step">
+                                <div class="step-num">4</div>
+                                <div class="step-desc">Click 'Train Model' to fit the Random Forest / XGBoost models.</div>
+                            </div>
+                            <div class="guide-step">
+                                <div class="step-num">5</div>
+                                <div class="step-desc">Review new accuracy metrics in the Analytics tab.</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>
@@ -187,68 +539,66 @@
     <div id="stock-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2 id="modal-ticker">AAPL</h2>
+                <div>
+                    <h2 id="modal-ticker">--</h2>
+                    <p id="modal-company" class="modal-subtitle">--</p>
+                </div>
                 <button class="modal-close" onclick="closeStockModal()">&times;</button>
             </div>
             <div class="modal-body">
-                <!-- Stock Info -->
-                <div class="stock-info-grid">
-                    <div class="info-item">
-                        <span class="label">Price</span>
-                        <span class="value" id="modal-price">$0.00</span>
+                <div class="modal-stats">
+                    <div class="modal-stat">
+                        <span class="stat-label">Price</span>
+                        <span class="stat-value" id="modal-price">--</span>
                     </div>
-                    <div class="info-item">
-                        <span class="label">Change</span>
-                        <span class="value" id="modal-change">+0.00%</span>
+                    <div class="modal-stat">
+                        <span class="stat-label">Change</span>
+                        <span class="stat-value" id="modal-change">--</span>
                     </div>
-                    <div class="info-item">
-                        <span class="label">Recommendation</span>
-                        <span class="value" id="modal-recommendation">HOLD</span>
+                    <div class="modal-stat">
+                        <span class="stat-label">Recommendation</span>
+                        <span class="stat-value" id="modal-recommendation">--</span>
                     </div>
-                    <div class="info-item">
-                        <span class="label">Sentiment</span>
-                        <span class="value" id="modal-sentiment">0%</span>
+                    <div class="modal-stat">
+                        <span class="stat-label">Sentiment</span>
+                        <span class="stat-value" id="modal-sentiment">--</span>
                     </div>
-                </div>
-
-                <!-- Chart Type Selector -->
-                <div class="chart-controls">
-                    <div class="chart-type-selector">
-                        <button class="chart-type-btn" data-type="line" onclick="switchChartType('line')">
-                            📈 Line Chart
-                        </button>
-                        <button class="chart-type-btn active" data-type="candlestick" onclick="switchChartType('candlestick')">
-                            📊 Candlestick
-                        </button>
+                    <div class="modal-stat">
+                        <span class="stat-label">Confidence</span>
+                        <span class="stat-value" id="modal-confidence">--</span>
                     </div>
-                    <div class="period-selector">
-                        <button class="period-btn" data-period="1mo" onclick="changePeriod('1mo')">1M</button>
-                        <button class="period-btn" data-period="3mo" onclick="changePeriod('3mo')">3M</button>
-                        <button class="period-btn" data-period="6mo" onclick="changePeriod('6mo')">6M</button>
-                        <button class="period-btn active" data-period="1y" onclick="changePeriod('1y')">1Y</button>
-                        <button class="period-btn" data-period="2y" onclick="changePeriod('2y')">2Y</button>
-                        <button class="period-btn" data-period="5y" onclick="changePeriod('5y')">5Y</button>
-                        <button class="period-btn" data-period="max" onclick="changePeriod('max')">MAX</button>
+                    <div class="modal-stat">
+                        <span class="stat-label">News Count</span>
+                        <span class="stat-value" id="modal-news-count">--</span>
                     </div>
                 </div>
-
-                <!-- Chart Container -->
-                <div id="chart-container" class="chart-container">
-                    <div class="chart-loading">Loading chart...</div>
-                </div>
-
-                <!-- Stock News -->
+                
                 <div class="modal-section">
-                    <h3>📰 Recent News</h3>
+                    <div class="chart-header">
+                        <h3>📊 Price Chart</h3>
+                        <div class="chart-controls">
+                            <button class="chart-btn active" onclick="changePeriod('1mo')">1M</button>
+                            <button class="chart-btn" onclick="changePeriod('3mo')">3M</button>
+                            <button class="chart-btn" onclick="changePeriod('6mo')">6M</button>
+                            <button class="chart-btn" onclick="changePeriod('1y')">1Y</button>
+                            <button class="chart-btn" onclick="changePeriod('2y')">2Y</button>
+                        </div>
+                    </div>
+                    <div id="chart-container" style="height: 400px; margin-top: 1rem;">
+                        <div class="loading-spinner"></div>
+                    </div>
+                </div>
+                
+                <div class="modal-section">
+                    <h3>📰 Related News</h3>
                     <div id="modal-news" class="modal-news-list">
-                        <p class="loading">Loading news...</p>
+                        <div class="loading-spinner"></div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Lightweight Charts Library - Load FIRST -->
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <script src="ticker-names.js"></script>
     <script src="stock-lookup.js"></script>

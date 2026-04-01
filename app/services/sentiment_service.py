@@ -9,7 +9,7 @@ from typing import List, Dict, Optional
 # Add parent directory to import existing scripts
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from scripts.sentiment_analyzer import SentimentAnalyzer as BaseSentimentAnalyzer
+from pipeline.sentiment_analyzer import SentimentAnalyzer as BaseSentimentAnalyzer
 
 
 class SentimentService:
