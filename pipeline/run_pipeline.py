@@ -7,21 +7,27 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from pipeline.news_fetcher import EnhancedNewsFetcher
+from pipeline.news_spider import FinancialNewsSpider
 from pipeline.sentiment_analyzer import SentimentAnalyzer
 from pipeline.price_fetcher import StockPriceFetcher
+from pipeline.data_validator import DataValidator
+from pipeline.cache_manager import CacheManager
+from pipeline.historical_data_manager import HistoricalDataManager
 import config
 import pandas as pd
 from datetime import datetime
 import json
+from scrapy.crawler import CrawlerProcess
 
 class StockPredictionPipeline:
-    """Complete pipeline from news to predictions"""
+    """Complete pipeline from news to predictions with validation, caching, and historical data management"""
     
     def __init__(self):
-        self.news_fetcher = EnhancedNewsFetcher()
         self.sentiment_analyzer = SentimentAnalyzer()
         self.price_fetcher = StockPriceFetcher()
+        self.validator = DataValidator()
+        self.cache = CacheManager()
+        self.historical_manager = HistoricalDataManager()
         
         self.news_data = []
         self.price_data = {}
@@ -34,10 +40,25 @@ class StockPredictionPipeline:
         print(" [*] STOCK PREDICTION PIPELINE - COMPREHENSIVE RUN")
         print("=" * 80 + "\n")
         
-        # Step 1: Fetch News
+        # Step 1: Fetch News using Scrapy
         print("\n[NEWS] STEP 1: FETCHING NEWS FOR 500+ STOCKS")
         print("-" * 80)
-        raw_news = self.news_fetcher.fetch_comprehensive_news(max_articles=1000)
+        
+        # Use Scrapy spider for news scraping
+        output_file = 'data/scraped_news.json'
+        process = CrawlerProcess({
+            'USER_AGENT': 'Mozilla/5.0',
+            'FEEDS': {output_file: {'format': 'json', 'overwrite': True}},
+            'LOG_LEVEL': 'ERROR'
+        })
+        
+        process.crawl(FinancialNewsSpider, tickers=config.STOCK_TICKERS[:200])  # Top 200 stocks
+        process.start()
+        
+        # Load scraped news
+        with open(output_file, 'r') as f:
+            raw_news = json.load(f)
+        
         print(f"[OK] Fetched {len(raw_news)} articles\n")
         
         # Step 2: Analyze Sentiment
@@ -69,7 +90,17 @@ class StockPredictionPipeline:
         self._save_results()
         print("[OK] All data saved to CSV files\n")
         
-        # Step 6: Show Summary
+        # Step 6: Add to Historical Data
+        print("\n[HISTORY] STEP 6: ADDING TO HISTORICAL DATA")
+        print("-" * 80)
+        self._add_to_historical()
+        
+        # Step 7: Validate Data Quality
+        print("\n[VALIDATE] STEP 7: VALIDATING DATA QUALITY")
+        print("-" * 80)
+        self._validate_data()
+        
+        # Step 8: Show Summary
         self._print_summary()
         
         return {
@@ -206,10 +237,10 @@ class StockPredictionPipeline:
                     'source': n.get('source', ''),
                     'ticker': n.get('ticker', ''),
                     'published_at': n.get('published_at', ''),
-                    'sentiment_compound': n.get('sentiment', {}).get('compound', 0),
-                    'sentiment_label': n.get('sentiment', {}).get('label', 'Neutral'),
-                    'impact_level': n.get('relevance', {}).get('impact_level', 'low'),
-                    'relevance_score': n.get('relevance', {}).get('score', 0),
+                    'sentiment_compound': n.get('sentiment_compound', 0),
+                    'sentiment_label': n.get('sentiment_label', 'Neutral'),
+                    'impact_level': n.get('impact_level', 'low'),
+                    'relevance_score': n.get('relevance_score', 0),
                     'url': n.get('url', ''),
                 }
                 for n in self.news_data
@@ -225,11 +256,57 @@ class StockPredictionPipeline:
         
         # Save stock prices
         if self.price_data:
-            price_list = [v for v in self.price_data.values() if 'error' not in v]
+            price_list = []
+            for ticker, data in self.price_data.items():
+                if 'error' not in data and data:
+                    price_list.append({
+                        'ticker': ticker,
+                        'current_price': data.get('current_price', 0),
+                        'previous_close': data.get('previous_close', 0),
+                        'price_change': data.get('price_change', 0),
+                        'price_change_percent': data.get('price_change_percent', 0),
+                        'volume': data.get('volume', 0),
+                        'market_cap': data.get('market_cap', 0),
+                    })
             if price_list:
                 price_df = pd.DataFrame(price_list)
                 price_df.to_csv('data/stock_prices.csv', index=False)
                 print(f"  [OK] Saved {len(price_df)} stock prices to data/stock_prices.csv")
+    
+    def _validate_data(self):
+        """Validate data quality"""
+        try:
+            news_df = pd.read_csv('data/news_analyzed.csv')
+            price_df = pd.read_csv('data/stock_prices.csv')
+            pred_df = pd.read_csv('data/predictions.csv')
+            
+            report = self.validator.generate_quality_report(news_df, price_df, pred_df)
+            self.validator.print_report(report)
+            
+            if not report['overall_valid']:
+                print("⚠️  WARNING: Data quality issues detected!")
+        except Exception as e:
+            print(f"  [!] Validation error: {e}")
+    
+    def _add_to_historical(self):
+        """Add today's news to historical data"""
+        try:
+            # Add today's analyzed news to historical batches
+            stats = self.historical_manager.add_daily_batch(
+                self.news_data,
+                datetime.now()
+            )
+            
+            print(f"  [OK] Added {stats['new_articles']} articles to historical data")
+            print(f"       Total historical batches: {stats['total_batches']}")
+            print(f"       Total historical articles: {stats['total_historical_articles']}")
+            
+            # Export for ML training
+            ml_file = self.historical_manager.export_for_ml_training()
+            print(f"  [OK] Exported ML training data to {ml_file}")
+            
+        except Exception as e:
+            print(f"  [!] Error adding to historical data: {e}")
     
     def _print_summary(self):
         """Print pipeline summary"""

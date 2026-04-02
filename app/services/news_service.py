@@ -11,25 +11,28 @@ import pandas as pd
 # Add parent directory to import existing scripts
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from pipeline.news_fetcher import EnhancedNewsFetcher
+from pipeline.news_spider import FinancialNewsSpider
+from scrapy.crawler import CrawlerProcess
+import json
+import os
 # FreeNewsFetcher removed - using Scrapy spider instead
 # from scripts.free_news_fetcher import FreeNewsFetcher
 from app.core.config import get_settings
+import pandas as pd
 
 
 class NewsService:
-    """Service for fetching news from multiple sources"""
+    """Service for fetching news from CSV data"""
     
     def __init__(self):
-        self.enhanced_fetcher = EnhancedNewsFetcher()
-        # self.free_fetcher = FreeNewsFetcher()  # Removed - using Scrapy
         self._cache: List[Dict] = []
         self._cache_timestamp: Optional[datetime] = None
         self.settings = get_settings()
+        self.news_file = 'data/news_analyzed.csv'
     
     def fetch_comprehensive_news(self, max_articles: int = 1000) -> List[Dict]:
         """
-        Fetch news from all sources
+        Fetch news from CSV file
         
         Args:
             max_articles: Maximum articles to fetch
@@ -37,14 +40,19 @@ class NewsService:
         Returns:
             List of news article dictionaries
         """
-        news = self.enhanced_fetcher.fetch_comprehensive_news(max_articles)
-        self._cache = news
-        self._cache_timestamp = datetime.now()
-        return news
+        try:
+            df = pd.read_csv(self.news_file)
+            news = df.head(max_articles).to_dict('records')
+            self._cache = news
+            self._cache_timestamp = datetime.now()
+            return news
+        except Exception as e:
+            print(f"Error loading news: {e}")
+            return []
     
     def fetch_free_news(self, stocks: Optional[List[str]] = None) -> List[Dict]:
         """
-        Fetch news from free sources only (no API keys needed)
+        Fetch news from CSV file
         
         Args:
             stocks: List of stock tickers
@@ -52,7 +60,7 @@ class NewsService:
         Returns:
             List of news article dictionaries
         """
-        return self.free_fetcher.fetch_all_news(stocks)
+        return self.fetch_comprehensive_news()
     
     def get_cached_news(self) -> List[Dict]:
         """Get cached news if available"""

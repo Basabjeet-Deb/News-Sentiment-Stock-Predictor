@@ -22,7 +22,7 @@ class StockPriceFetcher:
         
     def fetch_current_prices(self, tickers: List[str]) -> Dict[str, Dict]:
         """
-        Fetch current prices for multiple stocks
+        Fetch current prices for multiple stocks with robust error handling
         
         Returns:
             Dict of ticker -> {price, change, change_percent, volume, market_cap, etc.}
@@ -30,6 +30,7 @@ class StockPriceFetcher:
         print(f"[*] Fetching current prices for {len(tickers)} stocks...")
         
         results = {}
+        failed = []
         batch_size = 50  # Yahoo Finance handles batches well
         
         for i in range(0, len(tickers), batch_size):
@@ -38,11 +39,22 @@ class StockPriceFetcher:
             for ticker in batch:
                 try:
                     stock = yf.Ticker(ticker)
-                    info = stock.info
                     
-                    # Get current price
-                    current_price = info.get('currentPrice') or info.get('regularMarketPrice') or info.get('ask', 0)
-                    prev_close = info.get('previousClose', 0)
+                    # Try to get info first
+                    try:
+                        info = stock.info
+                        current_price = info.get('currentPrice') or info.get('regularMarketPrice') or info.get('ask', 0)
+                        prev_close = info.get('previousClose', 0)
+                    except:
+                        # If info fails, try history
+                        hist = stock.history(period='2d')
+                        if len(hist) > 0:
+                            current_price = float(hist['Close'].iloc[-1])
+                            prev_close = float(hist['Close'].iloc[-2]) if len(hist) > 1 else current_price
+                            info = {}
+                        else:
+                            failed.append(ticker)
+                            continue
                     
                     # Calculate change
                     if prev_close > 0:
@@ -68,13 +80,12 @@ class StockPriceFetcher:
                         'industry': info.get('industry', 'Unknown'),
                     }
                 except Exception as e:
-                    print(f"  Error fetching {ticker}: {e}")
-                    results[ticker] = {
-                        'ticker': ticker,
-                        'price': 0,
-                        'error': str(e)
-                    }
+                    # Silently skip failed tickers (delisted/invalid)
+                    failed.append(ticker)
+                    continue
         
+        if failed:
+            print(f"[!] Skipped {len(failed)} invalid/delisted tickers")
         print(f"[OK] Fetched prices for {len(results)} stocks")
         self.price_cache = results
         return results

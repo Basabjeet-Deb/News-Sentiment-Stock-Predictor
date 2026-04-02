@@ -599,6 +599,44 @@
         </div>
     </div>
 
+    <!-- Floating Chat Widget -->
+    <div class="chat-fab" id="chat-fab" title="AI Stock Assistant">
+        <span class="chat-fab-icon">🤖</span>
+        <span class="chat-fab-badge" id="chat-fab-badge">AI</span>
+    </div>
+
+    <div class="chat-panel" id="chat-panel">
+        <div class="chat-panel-header">
+            <div class="chat-panel-title">
+                <span class="chat-panel-avatar">🤖</span>
+                <div>
+                    <div class="chat-panel-name">AI Stock Assistant</div>
+                    <div class="chat-panel-status"><span class="chat-online-dot"></span> Online</div>
+                </div>
+            </div>
+            <button class="chat-panel-close" id="chat-panel-close">&#x2715;</button>
+        </div>
+        <div class="chat-panel-messages" id="chatbot-messages">
+            <div class="chat-message bot-message">
+                <div class="message-avatar">🤖</div>
+                <div class="message-content">
+                    <p>Hello! I'm your AI stock assistant. I can help you with:</p>
+                    <ul>
+                        <li>Stock analysis and sentiment</li>
+                        <li>Market trends and insights</li>
+                        <li>News analysis for specific stocks</li>
+                        <li>Recommendations and predictions</li>
+                    </ul>
+                    <p>Try: <em>"Top picks?"</em> or <em>"Tell me about AAPL"</em></p>
+                </div>
+            </div>
+        </div>
+        <div class="chat-panel-input-row">
+            <input type="text" id="chatbot-input" placeholder="Ask about any stock..." class="chat-panel-input">
+            <button id="chatbot-send" class="chat-panel-send">&#10148;</button>
+        </div>
+    </div>
+
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <script src="ticker-names.js"></script>
     <script src="stock-lookup.js"></script>
