@@ -9,20 +9,23 @@
 ## 🌟 Features
 
 ### Core Functionality
-- **Multi-Source News Fetching**: 1000+ articles/day from 7 sources (NewsAPI, Finnhub, Alpha Vantage, Marketaux, Yahoo Finance, Google News, Finviz)
+- **Multi-Source News Scraping**: 5000+ articles from 6 financial news sites using Scrapy
 - **Intelligent Sentiment Analysis**: VADER-based sentiment with relevance filtering and impact assessment
 - **Real-Time Stock Prices**: Live prices for 550+ stocks with historical data
 - **ML-Powered Predictions**: Buy/Hold/Sell recommendations with confidence scores
-- **Interactive Charts**: TradingView Lightweight Charts with line and candlestick views
+- **Interactive Charts**: Candlestick charts with multiple time periods
+- **AI Chatbot**: Ask questions about stocks, predictions, and market sentiment
 - **REST API**: FastAPI backend with interactive documentation
 - **Distributed Computing**: Master-slave cluster architecture for 3x faster processing
+- **Historical Data Collection**: Scrape 6-12 months of historical news for ML training
 
 ### Web Interface
+- **Glassmorphism UI**: Modern frosted glass design with smooth animations
 - **Search Functionality**: Natural language search (e.g., "Tesla" → TSLA)
 - **Interactive Dashboard**: Top recommendations, gainers, losers
 - **Stock Detail Modals**: Click any ticker for charts, news, and predictions
-- **Multiple Time Periods**: 1M, 3M, 6M, 1Y, 2Y, 5Y, MAX
-- **Animated UI**: Modern design with gradient backgrounds and smooth animations
+- **Multiple Time Periods**: 1M, 3M, 6M, 1Y, 2Y
+- **ML Training Page**: Collect historical data and train custom models
 
 ---
 
@@ -735,3 +738,54 @@ Having issues or questions?
 **Built with**: Python, FastAPI, TradingView Lightweight Charts, VADER Sentiment, yfinance, and ❤️
 
 **Last Updated**: March 29, 2026
+
+---
+
+## 🤖 AI Chatbot
+
+### Interactive Stock Assistant
+
+Ask questions about stocks, predictions, and market sentiment in natural language!
+
+**Quick Start:**
+
+**Option 1: Command Line**
+```bash
+cd chatbot
+python chatbot.py
+```
+
+**Option 2: Web Interface**
+```bash
+cd chatbot
+python web_chatbot.py
+```
+Then open `http://localhost:8002/chat_ui.html` in your browser.
+
+**Option 3: One-Click Start**
+```bash
+cd chatbot
+start_chatbot.bat    # Windows
+# OR
+./start_chatbot.sh   # Linux/Mac
+```
+
+### Example Questions
+
+- "What are the top buy recommendations?"
+- "Tell me about AAPL"
+- "Show news for TSLA"
+- "What's the market sentiment?"
+- "How many stocks are you tracking?"
+
+### Features
+
+- 📊 Stock information (price, recommendation, confidence)
+- 📰 News analysis for specific stocks
+- 🎯 Top buy/sell recommendations
+- 💭 Market sentiment overview
+- 📈 Statistics and insights
+- 🎨 Glassmorphism UI matching the main dashboard
+
+See `chatbot/README.md` for full documentation.
+
