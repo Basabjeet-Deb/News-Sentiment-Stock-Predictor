@@ -13,20 +13,12 @@ load_dotenv()
 # API KEYS (Get from respective websites)
 # =============================================================================
 
-# NewsAPI: https://newsapi.org/ (100 requests/day free)
-NEWSAPI_KEY = os.getenv('NEWSAPI_KEY', 'YOUR_NEWSAPI_KEY_HERE')
+# Note: News data is collected via web scraping (Scrapy spiders)
+# No news API keys needed
 
 # Alpha Vantage: https://www.alphavantage.co/ (25 requests/day free)
+# Only used for stock price data if needed as backup to yfinance
 ALPHA_VANTAGE_KEY = os.getenv('ALPHA_VANTAGE_KEY', 'YOUR_ALPHA_VANTAGE_KEY_HERE')
-
-# Finnhub: https://finnhub.io/ (60 calls/minute free)
-FINNHUB_KEY = os.getenv('FINNHUB_KEY', 'YOUR_FINNHUB_KEY_HERE')
-
-# Marketaux: https://www.marketaux.com/ (100 requests/day free)
-MARKETAUX_KEY = os.getenv('MARKETAUX_KEY', 'YOUR_MARKETAUX_KEY_HERE')
-
-# Bing News - DISCONTINUED (Microsoft ended free tier)
-# BING_NEWS_KEY = os.getenv('BING_NEWS_KEY', 'YOUR_BING_NEWS_KEY_HERE')
 
 # =============================================================================
 # STOCKS TO TRACK
@@ -184,10 +176,7 @@ STOCKS_CSV = f'{DATA_DIR}/stocks.csv'
 # =============================================================================
 
 RATE_LIMITS = {
-    'newsapi': 5,           # Conservative to stay under daily limit
-    'alphavantage': 2,      # Very limited on free tier
-    'finnhub': 50,          # 60/min but being conservative
-    'marketaux': 5,         # Conservative for daily limit
+    'alphavantage': 2,      # Very limited on free tier (backup for stock prices)
     'yahoo': 30,            # Scraping, can be more aggressive
 }
 
@@ -196,8 +185,5 @@ RATE_LIMITS = {
 # =============================================================================
 
 API_ENDPOINTS = {
-    'newsapi': 'https://newsapi.org/v2/everything',
-    'alphavantage': 'https://www.alphavantage.co/query',
-    'finnhub': 'https://finnhub.io/api/v1/company-news',
-    'marketaux': 'https://api.marketaux.com/v1/news/all',
+    'alphavantage': 'https://www.alphavantage.co/query',  # Backup for stock prices
 }

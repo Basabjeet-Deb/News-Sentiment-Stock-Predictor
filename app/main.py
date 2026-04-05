@@ -11,6 +11,7 @@ from datetime import datetime
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -19,6 +20,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.api.v1.router import router as v1_router
 from app.core.config import get_settings, STOCK_TICKERS
+from app.middleware import RateLimitMiddleware, get_cors_config
 
 
 # Lifespan context manager for startup/shutdown events
@@ -65,7 +67,7 @@ app = FastAPI(
     3. Get predictions from `/api/v1/predictions/top`
     
     ### Data Sources:
-    - Finnhub, Yahoo Finance, Google News, Finviz, Marketaux
+    - Web scraping: Google News, Finviz, MarketWatch, Yahoo Finance
     - VADER sentiment analysis
     - Real-time stock prices via yfinance
     """,
@@ -77,14 +79,21 @@ app = FastAPI(
 )
 
 
-# CORS middleware
+# CORS middleware with environment-based configuration
+cors_config = get_cors_config()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    **cors_config
 )
+
+# Rate limiting middleware
+app.add_middleware(
+    RateLimitMiddleware,
+    requests_per_minute=int(os.getenv("RATE_LIMIT_PER_MINUTE", "60"))
+)
+
+# GZip compression for responses
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 
 # Exception handler

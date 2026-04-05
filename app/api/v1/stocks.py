@@ -9,6 +9,12 @@ from datetime import datetime
 from app.services.price_service import PriceService
 from app.core.dependencies import get_price_service
 from app.core.config import STOCK_TICKERS
+from app.core.security import (
+    validate_ticker_format,
+    validate_numeric_range,
+    validate_sort_field,
+    PaginationValidator
+)
 
 router = APIRouter()
 
@@ -163,11 +169,12 @@ async def get_stock_price(
     """
     Get price data for a specific stock.
     """
+    # Validate ticker format
+    ticker_upper = validate_ticker_format(ticker)
+    
     prices = price_service.get_cached_prices()
     if not prices:
         prices = price_service.load_from_csv()
-    
-    ticker_upper = ticker.upper()
     
     if ticker_upper in prices and 'error' not in prices[ticker_upper]:
         return {
@@ -190,8 +197,8 @@ async def get_stock_price(
 @router.get("/{ticker}/history")
 async def get_stock_history(
     ticker: str,
-    period: str = Query("1mo", description="Time period: 1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, max"),
-    interval: str = Query("1d", description="Data interval: 1m, 5m, 15m, 1h, 1d, 1wk, 1mo"),
+    period: str = Query("1mo", regex="^(1d|5d|1mo|3mo|6mo|1y|2y|5y|max)$"),
+    interval: str = Query("1d", regex="^(1m|5m|15m|1h|1d|1wk|1mo)$"),
     price_service: PriceService = Depends(get_price_service)
 ):
     """
@@ -199,7 +206,8 @@ async def get_stock_history(
     
     Returns candlestick data for charting.
     """
-    ticker_upper = ticker.upper()
+    # Validate ticker format
+    ticker_upper = validate_ticker_format(ticker)
     
     try:
         history = price_service.get_historical_data(ticker_upper, period=period, interval=interval)

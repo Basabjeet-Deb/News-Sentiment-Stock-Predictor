@@ -92,9 +92,9 @@ class NewsResponse(BaseModel):
                 "articles": [],
                 "timestamp": "2026-03-29T08:00:00Z",
                 "sources": {
-                    "Finnhub": 95,
+                    "Google News": 95,
                     "Finviz": 240,
-                    "Yahoo Finance": 40
+                    "MarketWatch": 40
                 }
             }
         }

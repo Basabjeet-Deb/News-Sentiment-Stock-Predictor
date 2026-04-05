@@ -71,7 +71,8 @@ python pipeline/run_pipeline.py
 ---
 
 ## ✨ Key Features
-- ✅ **Ultra-Fast Scraping**: 5000+ articles in ~30 seconds.
+- ✅ **Ultra-Fast Web Scraping**: 5000+ articles in ~30 seconds via Scrapy spiders.
+- ✅ **No API Keys Required**: All news data collected through web scraping.
 - ✅ **Intelligent Sentiment**: VADER analysis with sector-aware impact weighting.
 - ✅ **Modern UI**: Dark-mode glassmorphism dashboard.
 - ✅ **Interactive AI**: Floating chatbot for stocks-specific insights.

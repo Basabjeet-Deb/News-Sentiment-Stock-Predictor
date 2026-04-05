@@ -17,11 +17,9 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     
     # API Keys (optional - system works without them)
-    NEWSAPI_KEY: Optional[str] = None
-    ALPHA_VANTAGE_KEY: Optional[str] = None
-    FINNHUB_KEY: Optional[str] = None
-    MARKETAUX_KEY: Optional[str] = None
-    FMP_API_KEY: Optional[str] = None  # Financial Modeling Prep
+    # News is collected via web scraping - no API keys needed
+    ALPHA_VANTAGE_KEY: Optional[str] = None  # Backup for stock prices
+    FMP_API_KEY: Optional[str] = None  # Financial Modeling Prep (optional)
     
     # CORS
     CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8000", "*"]
@@ -38,10 +36,8 @@ class Settings(BaseSettings):
     HISTORICAL_DAYS: int = 7
     
     # Rate limits
-    NEWSAPI_RATE_LIMIT: int = 5
-    FINNHUB_RATE_LIMIT: int = 50
-    ALPHA_VANTAGE_RATE_LIMIT: int = 2
-    MARKETAUX_RATE_LIMIT: int = 5
+    ALPHA_VANTAGE_RATE_LIMIT: int = 2  # Backup for stock prices
+    YAHOO_RATE_LIMIT: int = 30  # For yfinance stock data
     
     class Config:
         env_file = ".env"
