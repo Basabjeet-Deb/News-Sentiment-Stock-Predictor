@@ -10,19 +10,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # =============================================================================
-# API KEYS (Get from respective websites)
-# =============================================================================
-
-# Note: News data is collected via web scraping (Scrapy spiders)
-# No news API keys needed
-
-# Alpha Vantage: https://www.alphavantage.co/ (25 requests/day free)
-# Only used for stock price data if needed as backup to yfinance
-ALPHA_VANTAGE_KEY = os.getenv('ALPHA_VANTAGE_KEY', 'YOUR_ALPHA_VANTAGE_KEY_HERE')
-
-# =============================================================================
-# STOCKS TO TRACK
-# =============================================================================
 
 # =============================================================================
 # STOCKS TO TRACK - Expanded to 500+ stocks

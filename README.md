@@ -4,6 +4,17 @@ A high-performance, real-time stock analysis engine that combines massive news s
 
 ---
 
+## ⚖️ License & Copyright
+
+**Project:** News Sentiment Based Stock Predictor  
+**Copyright © 2026 Basabjeet Deb. All Rights Reserved.**
+
+This software is proprietary and confidential. Unauthorized copying, distribution, modification, or use of this software is strictly prohibited and will result in legal action. See [LICENSE](LICENSE) file for full terms.
+
+For licensing inquiries: basabjeet.557@gmail.com
+
+---
+
 ## 🏗 System Architecture & Pipeline
 
 The following diagram illustrates the data flow from raw news sources to final stock recommendations:

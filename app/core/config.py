@@ -24,11 +24,11 @@ class Settings(BaseSettings):
     # CORS
     CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8000", "*"]
     
-    # Data paths
-    DATA_DIR: str = "data"
-    NEWS_CSV: str = "data/news_analyzed.csv"
-    PREDICTIONS_CSV: str = "data/predictions.csv"
-    PRICES_CSV: str = "data/stock_prices.csv"
+    # Data paths - use absolute paths relative to project root
+    DATA_DIR: str = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "data")
+    NEWS_CSV: str = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "data", "news_analyzed.csv")
+    PREDICTIONS_CSV: str = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "data", "predictions.csv")
+    PRICES_CSV: str = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "data", "stock_prices.csv")
     
     # Pipeline settings
     MAX_ARTICLES: int = 1000
