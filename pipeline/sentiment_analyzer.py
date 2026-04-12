@@ -12,10 +12,14 @@ from difflib import SequenceMatcher
 import re
 import sys
 import os
+from datetime import datetime
+from math import exp
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
+
+from pipeline.article_prep import parse_article_datetime
 
 class SentimentAnalyzer:
     """Advanced sentiment analyzer with relevance filtering and deduplication"""
@@ -48,8 +52,45 @@ class SentimentAnalyzer:
         'video game', 'pokemon', 'betting', 'casino', 'lottery'
     ]
     
-    def __init__(self):
+    def __init__(
+        self,
+        sentiment_backend: str = "vader",
+        finbert_batch_size: int = 4,
+        finbert_max_length: int = 128,
+        sentiment_half_life_hours: float = 24.0,
+    ):
         self.analyzer = SentimentIntensityAnalyzer()
+        self.sentiment_backend = (sentiment_backend or "vader").lower().strip()
+        self.finbert_batch_size = int(finbert_batch_size)
+        self.finbert_max_length = int(finbert_max_length)
+        self.sentiment_half_life_hours = float(sentiment_half_life_hours)
+
+    def _apply_sentiment_and_relevance(
+        self,
+        article: Dict,
+        text: str,
+        compound: float,
+        pos: float,
+        neg: float,
+        neu: float,
+    ) -> Dict:
+        relevance = self._calculate_relevance(article, text)
+        impact_level = self._calculate_impact(text)
+        is_irrelevant = self._is_irrelevant(text)
+
+        article["sentiment_compound"] = compound
+        article["sentiment_positive"] = pos
+        article["sentiment_negative"] = neg
+        article["sentiment_neutral"] = neu
+        article["sentiment_label"] = self._get_sentiment_label(compound)
+
+        article["relevance_score"] = relevance
+        article["is_relevant"] = relevance >= 0.25 and not is_irrelevant
+        article["impact_level"] = impact_level
+        article["is_impactful"] = impact_level in ["high", "macro"]
+        article["is_irrelevant"] = is_irrelevant
+        article["sentiment_backend"] = self.sentiment_backend
+        return article
         
     def analyze_article(self, article: Dict) -> Dict:
         """
@@ -60,43 +101,76 @@ class SentimentAnalyzer:
         """
         text = f"{article.get('title', '')} {article.get('description', '')}"
         
-        # Get VADER sentiment scores
         scores = self.analyzer.polarity_scores(text)
-        
-        # Determine relevance and impact
-        relevance = self._calculate_relevance(article, text)
-        impact_level = self._calculate_impact(text)
-        is_irrelevant = self._is_irrelevant(text)
-        
-        # Add sentiment and relevance data
-        article['sentiment_compound'] = scores['compound']  # -1 to 1
-        article['sentiment_positive'] = scores['pos']
-        article['sentiment_negative'] = scores['neg']
-        article['sentiment_neutral'] = scores['neu']
-        article['sentiment_label'] = self._get_sentiment_label(scores['compound'])
-        
-        article['relevance_score'] = relevance
-        article['is_relevant'] = relevance >= 0.25 and not is_irrelevant  # Lowered from 0.3
-        article['impact_level'] = impact_level
-        article['is_impactful'] = impact_level in ['high', 'macro']
-        article['is_irrelevant'] = is_irrelevant
-        
-        return article
+        return self._apply_sentiment_and_relevance(
+            article,
+            text,
+            scores["compound"],
+            scores["pos"],
+            scores["neg"],
+            scores["neu"],
+        )
     
     def analyze_batch(self, articles: List[Dict]) -> List[Dict]:
-        """Analyze multiple articles"""
-        print(f"\n[*] Analyzing sentiment for {len(articles)} articles...")
-        
-        analyzed = []
-        for article in articles:
+        """Analyze multiple articles (VADER per-item, or batched FinBERT + release)."""
+        print(f"\n[*] Analyzing sentiment for {len(articles)} articles (backend={self.sentiment_backend})...")
+
+        if self.sentiment_backend == "finbert":
+            analyzed = self._analyze_batch_finbert(articles)
+        else:
+            analyzed = []
+            for article in articles:
+                try:
+                    analyzed.append(self.analyze_article(dict(article)))
+                except Exception as e:
+                    print(f"  Error analyzing article: {e}")
+                    continue
+
+        print(f"[OK] Analyzed {len(analyzed)} articles")
+        return analyzed
+
+    def _analyze_batch_finbert(self, articles: List[Dict]) -> List[Dict]:
+        try:
+            from pipeline.finbert_engine import (
+                finbert_available,
+                predict_sentiment_for_texts,
+                release_finbert,
+            )
+        except ImportError as e:
+            print(f"  FinBERT unavailable ({e}); falling back to VADER.")
+            return [self.analyze_article(dict(a)) for a in articles]
+
+        if not finbert_available():
+            print("  torch/transformers not installed; falling back to VADER.")
+            return [self.analyze_article(dict(a)) for a in articles]
+
+        texts = [
+            f"{a.get('title', '')} {a.get('description', '')}"[:2000]
+            for a in articles
+        ]
+        analyzed: List[Dict] = []
+        try:
+            rows = predict_sentiment_for_texts(
+                texts,
+                batch_size=self.finbert_batch_size,
+                max_length=self.finbert_max_length,
+            )
+        except Exception as e:
+            print(f"  FinBERT inference failed ({e}); falling back to VADER.")
+            return [self.analyze_article(dict(a)) for a in articles]
+        finally:
+            release_finbert()
+
+        for article, text, row in zip(articles, texts, rows):
             try:
-                analyzed_article = self.analyze_article(article)
-                analyzed.append(analyzed_article)
+                compound, ppos, pneg, pneu = row
+                a = dict(article)
+                analyzed.append(
+                    self._apply_sentiment_and_relevance(a, text, compound, ppos, pneg, pneu)
+                )
             except Exception as e:
                 print(f"  Error analyzing article: {e}")
                 continue
-        
-        print(f"[OK] Analyzed {len(analyzed)} articles")
         return analyzed
     
     def remove_duplicates_fuzzy(self, articles: List[Dict], similarity_threshold: float = 0.85) -> List[Dict]:
@@ -179,9 +253,25 @@ class SentimentAnalyzer:
                 'recommendation': 'HOLD',
             }
         
-        # Calculate average sentiment
-        sentiments = [a.get('sentiment_compound', 0) for a in stock_articles]
-        avg_sentiment = sum(sentiments) / len(sentiments) if sentiments else 0
+        sentiments = [float(a.get('sentiment_compound', 0) or 0) for a in stock_articles]
+        now = datetime.now()
+        half_life = max(self.sentiment_half_life_hours, 1e-6)
+
+        weighted_sum = 0.0
+        weight_total = 0.0
+        for a, s in zip(stock_articles, sentiments):
+            dt = parse_article_datetime(a)
+            if dt is not None:
+                if dt.tzinfo is not None:
+                    dt = dt.astimezone().replace(tzinfo=None)
+                age_h = max(0.0, (now - dt).total_seconds() / 3600.0)
+            else:
+                age_h = 0.0
+            w = exp(-age_h / half_life)
+            weighted_sum += w * s
+            weight_total += w
+
+        avg_sentiment = weighted_sum / weight_total if weight_total > 0 else 0.0
         
         # Count sentiment types
         positive = sum(1 for s in sentiments if s > 0.05)

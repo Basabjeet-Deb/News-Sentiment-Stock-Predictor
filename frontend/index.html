@@ -4,16 +4,28 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
-    <title>Stock Sentiment Predictor - AI-Powered Analysis</title>
+    <title>MarketBrief — News-informed stock views</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="app">
+    <div class="app" id="app-root">
+        <!-- Mobile scrim -->
+        <div class="scrim" id="scrim"></div>
+
+        <!-- Toasts -->
+        <div class="toasts" id="toasts" aria-live="polite" aria-relevant="additions"></div>
+
         <!-- Sidebar -->
-        <aside class="sidebar">
+        <aside class="sidebar" id="sidebar">
             <div class="logo">
-                <h1>📈 StockSense AI</h1>
-                <p class="logo-subtitle">Real-time Sentiment Analysis</p>
+                <div class="brand">
+                    <div class="brand-mark">MB</div>
+                    <div class="brand-text">
+                        <h1>MarketBrief</h1>
+                        <p class="logo-subtitle">News context · sentiment · momentum</p>
+                    </div>
+                </div>
+                <button class="icon-btn sidebar-close" id="sidebar-close" title="Close menu">✕</button>
             </div>
             <nav class="nav">
                 <a href="#" class="nav-item active" data-page="dashboard">
@@ -62,16 +74,55 @@
             <!-- Header -->
             <header class="header">
                 <div class="header-left">
-                    <h2 id="page-title">AI-Powered Stock Analysis</h2>
-                    <p class="page-subtitle" id="page-subtitle">Real-time sentiment analysis from 5000+ news sources</p>
+                    <button class="icon-btn burger" id="sidebar-toggle" title="Open menu">☰</button>
+                    <div>
+                        <h2 id="page-title">AI-Powered Stock Analysis</h2>
+                        <p class="page-subtitle" id="page-subtitle">Real-time sentiment analysis from news sources</p>
+                    </div>
                 </div>
                 <div class="header-actions">
                     <input type="text" id="global-search" placeholder="Search: AAPL, TSLA, MSFT..." class="global-search">
-                    <button id="refresh-btn" class="btn btn-icon" title="Refresh Data">
-                        <span class="refresh-icon">↻</span>
-                    </button>
+                    <div class="header-btns">
+                        <button id="run-pipeline-btn" class="btn btn-primary" title="Run Pipeline (Scrape + Analyze + Predict)">
+                            <span class="btn-ic">▶</span><span class="btn-tx">Run</span>
+                        </button>
+                        <button id="refresh-btn" class="btn btn-ghost" title="Refresh Data">
+                            <span class="btn-ic">↻</span><span class="btn-tx">Refresh</span>
+                        </button>
+                    </div>
                 </div>
             </header>
+
+            <div class="disclaimer-bar" role="note">
+                <span class="disclaimer-icon">⚠️</span>
+                <span class="disclaimer-text">
+                    <strong>Educational Research Tool Only</strong> — This system analyzes news sentiment and does not constitute financial advice. 
+                    Past performance does not guarantee future results. Always consult a licensed financial advisor before making investment decisions.
+                    <button class="disclaimer-link" onclick="showFullDisclaimer()">Read Full Disclaimer</button>
+                </span>
+            </div>
+            
+            <!-- Top Progress Bar (pipeline + data loading) -->
+            <div id="top-progress" class="top-progress hidden" aria-live="polite">
+                <div class="top-progress-row">
+                    <div class="top-progress-title">
+                        <span class="top-progress-label" id="top-progress-label">Updating…</span>
+                        <span class="top-progress-stage" id="top-progress-stage"></span>
+                    </div>
+                    <div class="top-progress-right">
+                        <span class="top-progress-percent" id="top-progress-percent">0%</span>
+                    </div>
+                </div>
+                <div class="top-progress-bar">
+                    <div id="top-progress-fill" class="top-progress-fill"></div>
+                </div>
+            </div>
+
+            <!-- Global banner -->
+            <div class="banner hidden" id="banner">
+                <div class="banner-text" id="banner-text"></div>
+                <button class="icon-btn" id="banner-close" title="Dismiss">✕</button>
+            </div>
 
             <!-- Dashboard Page -->
             <div id="dashboard-page" class="page active">
@@ -533,6 +584,70 @@
                 </div>
             </div>
         </main>
+    </div>
+
+    <!-- Full Disclaimer Modal -->
+    <div id="disclaimer-modal" class="modal">
+        <div class="modal-content disclaimer-modal-content">
+            <div class="modal-header">
+                <h2>⚠️ Important Legal Disclaimer</h2>
+                <button class="modal-close" onclick="closeDisclaimerModal()">&times;</button>
+            </div>
+            <div class="modal-body disclaimer-modal-body">
+                <div class="disclaimer-section">
+                    <h3>🎓 Educational Purpose Only</h3>
+                    <p>This application is designed for <strong>educational and research purposes only</strong>. It demonstrates sentiment analysis techniques and data visualization but is NOT intended for actual trading or investment decisions.</p>
+                </div>
+
+                <div class="disclaimer-section">
+                    <h3>⚖️ Not Financial Advice</h3>
+                    <p>The predictions, recommendations, and analysis provided by this system do <strong>NOT constitute financial, investment, or trading advice</strong>. The creator and operators of this system are not licensed financial advisors, brokers, or investment professionals.</p>
+                </div>
+
+                <div class="disclaimer-section">
+                    <h3>📊 Methodology Limitations</h3>
+                    <ul>
+                        <li><strong>Sentiment ≠ Performance:</strong> News sentiment does not reliably predict stock price movements</li>
+                        <li><strong>Limited Data:</strong> Analysis based on limited news sources and may miss critical information</li>
+                        <li><strong>No Backtesting:</strong> Predictions have not been validated against historical performance</li>
+                        <li><strong>Simplified Model:</strong> Uses basic sentiment scoring, not advanced machine learning</li>
+                        <li><strong>No Fundamentals:</strong> Ignores financial statements, P/E ratios, revenue, and other key metrics</li>
+                        <li><strong>No Technical Analysis:</strong> Does not consider chart patterns, RSI, MACD, or other indicators</li>
+                    </ul>
+                </div>
+
+                <div class="disclaimer-section">
+                    <h3>⚠️ Risk Warning</h3>
+                    <p><strong>Trading stocks involves substantial risk of loss.</strong> You can lose some or all of your invested capital. Never invest money you cannot afford to lose. Past performance, whether actual or indicated by historical tests of strategies, is no guarantee of future performance or success.</p>
+                </div>
+
+                <div class="disclaimer-section">
+                    <h3>🔍 Data Accuracy</h3>
+                    <p>While we strive for accuracy, we make <strong>no guarantees</strong> regarding the completeness, accuracy, or timeliness of data. Stock prices, news articles, and sentiment scores may contain errors or be outdated. Always verify information from official sources.</p>
+                </div>
+
+                <div class="disclaimer-section">
+                    <h3>📜 No Liability</h3>
+                    <p>By using this application, you agree that the creator, Basabjeet Deb, and any contributors are <strong>not liable for any losses, damages, or consequences</strong> resulting from your use of this system or reliance on its predictions.</p>
+                </div>
+
+                <div class="disclaimer-section">
+                    <h3>✅ Recommended Actions</h3>
+                    <ul>
+                        <li>Consult a licensed financial advisor before making investment decisions</li>
+                        <li>Conduct your own research using multiple sources</li>
+                        <li>Understand the risks involved in stock trading</li>
+                        <li>Never invest based solely on automated predictions</li>
+                        <li>Verify all data from official financial sources</li>
+                    </ul>
+                </div>
+
+                <div class="disclaimer-footer">
+                    <p><strong>© 2026 Basabjeet Deb</strong> | News Sentiment Based Stock Predictor</p>
+                    <p>For educational demonstration purposes only. Not for commercial use.</p>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Stock Detail Modal -->

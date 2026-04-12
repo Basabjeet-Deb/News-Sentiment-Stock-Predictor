@@ -16,6 +16,7 @@ _pipeline_status = {
     "running": False,
     "last_run": None,
     "last_result": None,
+    "progress": {"stage": "idle", "percent": 0, "message": "", "updated_at": None},
 }
 
 
@@ -32,6 +33,7 @@ async def get_pipeline_status():
         "is_running": _pipeline_status["running"],
         "last_run": _pipeline_status["last_run"],
         "last_result": _pipeline_status["last_result"],
+        "progress": _pipeline_status["progress"],
         "data_status": pipeline_service.get_last_run_status(),
         "timestamp": datetime.now().isoformat()
     }
@@ -43,15 +45,36 @@ def _run_pipeline_task(max_articles: int):
     
     _pipeline_status["running"] = True
     _pipeline_status["last_run"] = datetime.now().isoformat()
+    _pipeline_status["progress"] = {
+        "stage": "starting",
+        "percent": 1,
+        "message": "Starting pipeline...",
+        "updated_at": datetime.now().isoformat(),
+    }
     
     try:
         pipeline_service = PipelineService()
-        result = pipeline_service.run_full_pipeline(max_articles)
+        
+        def progress_cb(update: dict):
+            _pipeline_status["progress"] = {
+                "stage": update.get("stage", ""),
+                "percent": int(update.get("percent", 0)),
+                "message": update.get("message", ""),
+                "updated_at": datetime.now().isoformat(),
+            }
+        
+        result = pipeline_service.run_full_pipeline(max_articles, progress_cb=progress_cb)
         _pipeline_status["last_result"] = result
     except Exception as e:
         _pipeline_status["last_result"] = {
             "status": "error",
             "error": str(e),
+        }
+        _pipeline_status["progress"] = {
+            "stage": "error",
+            "percent": 100,
+            "message": str(e),
+            "updated_at": datetime.now().isoformat(),
         }
     finally:
         _pipeline_status["running"] = False
@@ -60,7 +83,7 @@ def _run_pipeline_task(max_articles: int):
 @router.post("/run")
 async def run_pipeline(
     background_tasks: BackgroundTasks,
-    max_articles: int = Query(1000, ge=100, le=2000, description="Max news articles to fetch"),
+    max_articles: int = Query(500, ge=50, le=2000, description="Max news articles to fetch (deduped/capped by PIPELINE_ARTICLE_CAP)"),
 ):
     """
     Run the complete prediction pipeline.
@@ -89,7 +112,7 @@ async def run_pipeline(
 
 @router.post("/run-sync")
 async def run_pipeline_sync(
-    max_articles: int = Query(500, ge=100, le=1000, description="Max news articles"),
+    max_articles: int = Query(500, ge=50, le=2000, description="Max news articles"),
 ):
     """
     Run pipeline synchronously (blocking).

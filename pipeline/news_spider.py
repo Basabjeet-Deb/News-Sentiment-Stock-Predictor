@@ -19,10 +19,15 @@ class FinancialNewsSpider(scrapy.Spider):
         'USER_AGENT': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
         'ROBOTSTXT_OBEY': True,
         'CONCURRENT_REQUESTS': 16,
-        'DOWNLOAD_DELAY': 0.5,
+        'DOWNLOAD_DELAY': 0.25,
         'COOKIES_ENABLED': False,
         'TELNETCONSOLE_ENABLED': False,
         'LOG_LEVEL': 'INFO',
+        # Be polite but keep throughput reasonable.
+        'AUTOTHROTTLE_ENABLED': True,
+        'AUTOTHROTTLE_START_DELAY': 0.25,
+        'AUTOTHROTTLE_MAX_DELAY': 5.0,
+        'AUTOTHROTTLE_TARGET_CONCURRENCY': 4.0,
     }
     
     def __init__(self, tickers=None, *args, **kwargs):
@@ -32,34 +37,56 @@ class FinancialNewsSpider(scrapy.Spider):
         
     def start_requests(self):
         """Generate URLs to scrape"""
+        scraped_at = datetime.utcnow().isoformat() + "Z"
+        
+        # 0. RSS feeds (high-yield, low breakage)
+        # Google News RSS search per ticker
+        for ticker in self.tickers[:200]:
+            q = f"{ticker} stock"
+            url = f"https://news.google.com/rss/search?q={q}&hl=en-US&gl=US&ceid=US:en"
+            yield scrapy.Request(
+                url,
+                callback=self.parse_rss,
+                meta={"ticker": ticker, "source": "Google News (RSS)", "scraped_at": scraped_at},
+            )
+        
+        # Yahoo Finance RSS per ticker
+        for ticker in self.tickers[:200]:
+            url = f"https://feeds.finance.yahoo.com/rss/2.0/headline?s={ticker}&region=US&lang=en-US"
+            yield scrapy.Request(
+                url,
+                callback=self.parse_rss,
+                meta={"ticker": ticker, "source": "Yahoo Finance (RSS)", "scraped_at": scraped_at},
+            )
         
         # 1. Finviz - Stock-specific news
-        for ticker in self.tickers[:50]:  # Top 50 stocks
+        for ticker in self.tickers[:100]:  # Increase coverage
             url = f'https://finviz.com/quote.ashx?t={ticker}'
-            yield scrapy.Request(url, callback=self.parse_finviz, meta={'ticker': ticker})
+            yield scrapy.Request(url, callback=self.parse_finviz, meta={'ticker': ticker, "scraped_at": scraped_at})
         
         # 2. MarketWatch - Latest news
-        yield scrapy.Request('https://www.marketwatch.com/latest-news', callback=self.parse_marketwatch)
+        yield scrapy.Request('https://www.marketwatch.com/latest-news', callback=self.parse_marketwatch, meta={"scraped_at": scraped_at})
         
         # 3. Seeking Alpha - Market news
-        yield scrapy.Request('https://seekingalpha.com/market-news', callback=self.parse_seeking_alpha)
+        yield scrapy.Request('https://seekingalpha.com/market-news', callback=self.parse_seeking_alpha, meta={"scraped_at": scraped_at})
         
         # 4. Investing.com - Stock news
-        for ticker in self.tickers[:30]:
+        for ticker in self.tickers[:50]:
             # Note: Investing.com URLs vary, this is a simplified example
             yield scrapy.Request(f'https://www.investing.com/search/?q={ticker}', 
                                callback=self.parse_investing, 
-                               meta={'ticker': ticker})
+                               meta={'ticker': ticker, "scraped_at": scraped_at})
         
         # 5. Reuters - Business news
-        yield scrapy.Request('https://www.reuters.com/business/', callback=self.parse_reuters)
+        yield scrapy.Request('https://www.reuters.com/business/', callback=self.parse_reuters, meta={"scraped_at": scraped_at})
         
         # 6. Bloomberg - Markets
-        yield scrapy.Request('https://www.bloomberg.com/markets', callback=self.parse_bloomberg)
+        yield scrapy.Request('https://www.bloomberg.com/markets', callback=self.parse_bloomberg, meta={"scraped_at": scraped_at})
     
     def parse_finviz(self, response):
         """Parse Finviz news table"""
         ticker = response.meta['ticker']
+        scraped_at = response.meta.get("scraped_at", "")
         
         # Finviz news table
         news_table = response.css('table.fullview-news-outer')
@@ -85,6 +112,7 @@ class FinancialNewsSpider(scrapy.Spider):
                             'content': '',
                             'author': 'Unknown',
                             'topics': [],
+                            'scraped_at': scraped_at,
                         }
                         self.articles.append(article)
                         yield article
@@ -93,6 +121,7 @@ class FinancialNewsSpider(scrapy.Spider):
     
     def parse_marketwatch(self, response):
         """Parse MarketWatch latest news"""
+        scraped_at = response.meta.get("scraped_at", "")
         
         articles = response.css('div.article__content')
         
@@ -114,6 +143,7 @@ class FinancialNewsSpider(scrapy.Spider):
                         'content': '',
                         'author': 'MarketWatch',
                         'topics': [],
+                        'scraped_at': scraped_at,
                     }
                     self.articles.append(article_data)
                     yield article_data
@@ -122,6 +152,7 @@ class FinancialNewsSpider(scrapy.Spider):
     
     def parse_seeking_alpha(self, response):
         """Parse Seeking Alpha market news"""
+        scraped_at = response.meta.get("scraped_at", "")
         
         articles = response.css('article')
         
@@ -142,6 +173,7 @@ class FinancialNewsSpider(scrapy.Spider):
                         'content': '',
                         'author': 'Seeking Alpha',
                         'topics': [],
+                        'scraped_at': scraped_at,
                     }
                     self.articles.append(article_data)
                     yield article_data
@@ -151,6 +183,7 @@ class FinancialNewsSpider(scrapy.Spider):
     def parse_investing(self, response):
         """Parse Investing.com search results"""
         ticker = response.meta['ticker']
+        scraped_at = response.meta.get("scraped_at", "")
         
         # This is simplified - Investing.com structure varies
         articles = response.css('article.js-article-item')
@@ -171,6 +204,7 @@ class FinancialNewsSpider(scrapy.Spider):
                         'content': '',
                         'author': 'Investing.com',
                         'topics': [],
+                        'scraped_at': scraped_at,
                     }
                     self.articles.append(article_data)
                     yield article_data
@@ -179,6 +213,7 @@ class FinancialNewsSpider(scrapy.Spider):
     
     def parse_reuters(self, response):
         """Parse Reuters business news"""
+        scraped_at = response.meta.get("scraped_at", "")
         
         articles = response.css('div[data-testid="MediaStoryCard"]')
         
@@ -199,6 +234,7 @@ class FinancialNewsSpider(scrapy.Spider):
                         'content': '',
                         'author': 'Reuters',
                         'topics': [],
+                        'scraped_at': scraped_at,
                     }
                     self.articles.append(article_data)
                     yield article_data
@@ -207,6 +243,7 @@ class FinancialNewsSpider(scrapy.Spider):
     
     def parse_bloomberg(self, response):
         """Parse Bloomberg markets"""
+        scraped_at = response.meta.get("scraped_at", "")
         
         articles = response.css('article')
         
@@ -226,11 +263,46 @@ class FinancialNewsSpider(scrapy.Spider):
                         'content': '',
                         'author': 'Bloomberg',
                         'topics': [],
+                        'scraped_at': scraped_at,
                     }
                     self.articles.append(article_data)
                     yield article_data
             except Exception as e:
                 self.logger.error(f"Error parsing Bloomberg article: {e}")
+    
+    def parse_rss(self, response):
+        """
+        Parse RSS/Atom feeds (Google News RSS, Yahoo Finance RSS, etc.).
+        """
+        default_ticker = response.meta.get("ticker", "")
+        source = response.meta.get("source", "RSS")
+        scraped_at = response.meta.get("scraped_at", "")
+        
+        for item in response.xpath("//item"):
+            title = item.xpath("string(title)").get()
+            url = item.xpath("string(link)").get()
+            description = item.xpath("string(description)").get() or ""
+            pub_date = item.xpath("string(pubDate)").get() or item.xpath("string(pubdate)").get() or ""
+            
+            if not title or not url:
+                continue
+            
+            # Use explicit ticker (feed is per ticker) but allow extraction fallback.
+            extracted = self._extract_ticker(title) or self._extract_ticker(description)
+            ticker = default_ticker or extracted
+            
+            yield {
+                "source": source,
+                "title": title.strip(),
+                "url": url.strip(),
+                "ticker": ticker,
+                "published_at": pub_date.strip(),
+                "description": description.strip(),
+                "content": "",
+                "author": "",
+                "topics": [],
+                "scraped_at": scraped_at,
+            }
     
     def _extract_ticker(self, text):
         """Extract ticker from text"""

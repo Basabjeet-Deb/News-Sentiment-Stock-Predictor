@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import Response
 
 # Add parent directory to path for importing existing scripts
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -136,6 +137,12 @@ async def health_check():
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
     }
+
+
+# Prevent noisy 404 in Chrome devtools on Windows
+@app.get("/.well-known/appspecific/com.chrome.devtools.json", include_in_schema=False)
+async def chrome_devtools_well_known():
+    return Response(status_code=204)
 
 
 @app.get("/api", tags=["Health"])

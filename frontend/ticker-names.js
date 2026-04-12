@@ -10,7 +10,7 @@ const TICKER_NAMES = {
     'NVDA': 'NVIDIA',
     'NFLX': 'Netflix',
     'INTC': 'Intel',
-    'AMD': 'AMD',
+    'AMD': 'Advanced Micro Devices, Inc.',
     'CRM': 'Salesforce',
     'ORCL': 'Oracle',
     'ADBE': 'Adobe',

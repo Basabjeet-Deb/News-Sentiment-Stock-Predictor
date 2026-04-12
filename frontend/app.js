@@ -1,7 +1,8 @@
-// StockSense AI - Main Application
+// MarketBrief — main application
 let allPredictions = [];
 let allStocks = [];
 let allNews = [];
+let totals = { predictions: null, news: null };
 let currentView = 'grid';
 let currentTicker = null;
 let currentPeriod = '1mo';
@@ -13,11 +14,109 @@ document.addEventListener('DOMContentLoaded', () => {
     setupNavigation();
     setupFilters();
     setupSearch();
+    setupStockFilters();
+    setupPipelineControls();
+    setupShellUI();
     loadAllData();
     
     // Auto-refresh every 5 minutes
     setInterval(loadAllData, 5 * 60 * 1000);
 });
+
+function setupShellUI() {
+    const sidebar = document.getElementById("sidebar");
+    const scrim = document.getElementById("scrim");
+    const toggle = document.getElementById("sidebar-toggle");
+    const close = document.getElementById("sidebar-close");
+    const bannerClose = document.getElementById("banner-close");
+    
+    const openSidebar = () => {
+        if (!sidebar || !scrim) return;
+        sidebar.classList.add("open");
+        scrim.classList.add("open");
+    };
+    const closeSidebar = () => {
+        if (!sidebar || !scrim) return;
+        sidebar.classList.remove("open");
+        scrim.classList.remove("open");
+    };
+    
+    toggle?.addEventListener("click", openSidebar);
+    close?.addEventListener("click", closeSidebar);
+    scrim?.addEventListener("click", closeSidebar);
+    bannerClose?.addEventListener("click", () => hideBanner());
+}
+
+function showBanner(message) {
+    const b = document.getElementById("banner");
+    const t = document.getElementById("banner-text");
+    if (!b || !t) return;
+    t.textContent = message;
+    b.classList.remove("hidden");
+}
+
+function hideBanner() {
+    const b = document.getElementById("banner");
+    if (!b) return;
+    b.classList.add("hidden");
+}
+
+function toast({ type = "ok", title = "", message = "", timeoutMs = 3200 }) {
+    const root = document.getElementById("toasts");
+    if (!root) return;
+    const el = document.createElement("div");
+    el.className = `toast ${type}`;
+    el.innerHTML = `
+        <div>
+            <div class="toast-title">${escapeHtml(title)}</div>
+            <div class="toast-msg">${escapeHtml(message)}</div>
+        </div>
+        <button class="icon-btn" title="Dismiss">✕</button>
+    `;
+    el.querySelector("button")?.addEventListener("click", () => el.remove());
+    root.appendChild(el);
+    setTimeout(() => el.remove(), timeoutMs);
+}
+
+function escapeHtml(s) {
+    return String(s ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
+
+function setupStockFilters() {
+    const search = document.getElementById('stock-search');
+    const sector = document.getElementById('sector-filter');
+    search?.addEventListener('input', () => loadStocks());
+    sector?.addEventListener('change', () => loadStocks());
+}
+
+function normalizeSector(s) {
+    const v = String(s ?? '').trim();
+    if (!v) return 'Unknown';
+    if (v.toLowerCase() === 'n/a') return 'Unknown';
+    return v;
+}
+
+function updateSectorDropdown() {
+    const select = document.getElementById('sector-filter');
+    if (!select) return;
+
+    const prev = select.value || 'all';
+    const sectors = Array.from(new Set((allPredictions || []).map(p => normalizeSector(p.sector))))
+        .sort((a, b) => a.localeCompare(b));
+
+    select.innerHTML = [
+        `<option value="all">All Sectors</option>`,
+        ...sectors.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`),
+    ].join('');
+
+    const stillExists = Array.from(select.options).some(o => o.value === prev);
+    select.value = stillExists ? prev : 'all';
+}
 
 // Setup Navigation
 function setupNavigation() {
@@ -38,6 +137,75 @@ function setupNavigation() {
     });
     
     document.getElementById('refresh-btn').addEventListener('click', loadAllData);
+}
+
+function setupPipelineControls() {
+    const runBtn = document.getElementById('run-pipeline-btn');
+    if (!runBtn) return;
+    
+    runBtn.addEventListener('click', async () => {
+        try {
+            showTopProgress({ label: "Running pipeline…", stage: "Starting", percent: 1 });
+            await API.runPipeline();
+            // Optimistic UI: start polling status, progress updates will drive bar.
+            await pollPipelineUntilDone();
+            await loadAllData();
+            toast({ type: "ok", title: "Pipeline complete", message: "Predictions and news were updated." });
+        } catch (e) {
+            console.error("Pipeline run failed", e);
+            showTopProgress({ label: "Pipeline failed", stage: String(e?.message || e), percent: 100 });
+            setTimeout(hideTopProgress, 2500);
+            showBanner(`Pipeline failed: ${String(e?.message || e)}`);
+            toast({ type: "err", title: "Pipeline failed", message: String(e?.message || e) });
+        }
+    });
+}
+
+function showTopProgress({ label, stage, percent }) {
+    const el = document.getElementById("top-progress");
+    if (!el) return;
+    el.classList.remove("hidden");
+    document.getElementById("top-progress-label").textContent = label || "Updating…";
+    document.getElementById("top-progress-stage").textContent = stage || "";
+    document.getElementById("top-progress-percent").textContent = `${Math.max(0, Math.min(100, percent || 0))}%`;
+    document.getElementById("top-progress-fill").style.width = `${Math.max(0, Math.min(100, percent || 0))}%`;
+}
+
+function hideTopProgress() {
+    const el = document.getElementById("top-progress");
+    if (!el) return;
+    el.classList.add("hidden");
+}
+
+async function pollPipelineUntilDone(timeoutMs = 10 * 60 * 1000) {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+        const status = await API.getPipelineStatus();
+        const p = status?.progress || {};
+        const isRunning = !!status?.is_running;
+        const pct = typeof p.percent === "number" ? p.percent : 0;
+        const stage = p.stage || (isRunning ? "running" : "idle");
+        const msg = p.message || "";
+        
+        showTopProgress({
+            label: isRunning ? "Running pipeline…" : "Finalizing…",
+            stage: msg ? `${stage}: ${msg}` : stage,
+            percent: isRunning ? Math.max(1, Math.min(99, pct)) : 100,
+        });
+        
+        if (!isRunning) {
+            // pipeline ended (success or error)
+            const last = status?.last_result;
+            if (last?.status === "error") {
+                throw new Error(last?.error || "Pipeline error");
+            }
+            setTimeout(hideTopProgress, 1200);
+            return;
+        }
+        
+        await new Promise(r => setTimeout(r, 1200));
+    }
+    throw new Error("Pipeline timed out");
 }
 
 function updatePageTitle(page) {
@@ -64,34 +232,59 @@ function updatePageTitle(page) {
 // Load all data automatically
 async function loadAllData() {
     try {
+        showTopProgress({ label: "Refreshing data…", stage: "Fetching API data", percent: 10 });
+        hideBanner();
+
+        // Fetch totals (so sidebar shows full dataset size, not just the preloaded slice).
+        try {
+            const [predSummaryRes, newsSummaryRes] = await Promise.all([
+                fetch('http://localhost:8000/api/v1/predictions/summary'),
+                fetch('http://localhost:8000/api/v1/news/summary'),
+            ]);
+            const predSummary = await predSummaryRes.json();
+            const newsSummary = await newsSummaryRes.json();
+            // predictions/summary returns total_stocks (not total_count)
+            const predTotal = Number(predSummary?.total_stocks ?? predSummary?.total_count ?? NaN);
+            const newsTotal = Number(newsSummary?.total_count ?? NaN);
+            totals.predictions = Number.isFinite(predTotal) && predTotal > 0 ? predTotal : null;
+            totals.news = Number.isFinite(newsTotal) && newsTotal > 0 ? newsTotal : null;
+        } catch (_) {
+            // Ignore: we can still render with slice lengths.
+        }
         // Fetch all predictions (max 500 per request)
-        const predictionsRes = await fetch('http://localhost:8000/api/v1/predictions/?limit=500');
+        const predictionsRes = await fetch('http://localhost:8000/api/v1/predictions/?limit=300');
         const predictionsData = await predictionsRes.json();
         allPredictions = predictionsData.predictions || [];
         
-        // Fetch all news (max 500 per request, get 2 pages)
-        const newsRes1 = await fetch('http://localhost:8000/api/v1/news/?limit=500&offset=0');
-        const newsData1 = await newsRes1.json();
-        const newsRes2 = await fetch('http://localhost:8000/api/v1/news/?limit=500&offset=500');
-        const newsData2 = await newsRes2.json();
-        
-        // API returns "articles" not "news"
-        allNews = [...(newsData1.articles || []), ...(newsData2.articles || [])];
+        // Keep the dashboard fast: load a smaller news slice on refresh.
+        // The full news page can be loaded on-demand.
+        const newsRes = await fetch('http://localhost:8000/api/v1/news/?limit=200&offset=0');
+        const newsData = await newsRes.json();
+        allNews = [...(newsData.articles || [])];
         
         console.log('✅ Loaded:', allPredictions.length, 'predictions,', allNews.length, 'news articles');
         
+        updateSectorDropdown();
         updateSidebar();
         loadDashboard();
+        showTopProgress({ label: "Up to date", stage: "Done", percent: 100 });
+        setTimeout(hideTopProgress, 800);
         
     } catch (error) {
         console.error('❌ Error loading data:', error);
         showError('Failed to load data. Please refresh the page.');
+        showTopProgress({ label: "Refresh failed", stage: String(error?.message || error), percent: 100 });
+        setTimeout(hideTopProgress, 2500);
+        showBanner(`Refresh failed: ${String(error?.message || error)}`);
+        toast({ type: "err", title: "Refresh failed", message: String(error?.message || error) });
     }
 }
 
 function updateSidebar() {
-    document.getElementById('sidebar-stocks').textContent = allPredictions.length;
-    document.getElementById('sidebar-news').textContent = allNews.length;
+    const predCount = Number.isFinite(totals.predictions) ? totals.predictions : allPredictions.length;
+    const newsCount = Number.isFinite(totals.news) ? totals.news : allNews.length;
+    document.getElementById('sidebar-stocks').textContent = predCount;
+    document.getElementById('sidebar-news').textContent = newsCount;
     document.getElementById('sidebar-update').textContent = new Date().toLocaleTimeString();
 }
 
@@ -100,12 +293,21 @@ async function loadDashboard() {
     try {
         const summary = await API.getPredictionSummary();
         
+        // Prefer server-side totals (covers full dataset, not just the preloaded slice).
+        const sb = Number(summary?.strong_buy_count);
+        const b = Number(summary?.buy_count);
+        const h = Number(summary?.hold_count);
+        const s = Number(summary?.sell_count);
+        const ss = Number(summary?.strong_sell_count);
+        const hasTotals =
+            Number.isFinite(sb) && Number.isFinite(b) && Number.isFinite(h) && Number.isFinite(s) && Number.isFinite(ss);
+
         // Calculate metrics
-        const strongBuy = allPredictions.filter(p => p.recommendation === 'STRONG BUY').length;
-        const buy = allPredictions.filter(p => p.recommendation === 'BUY').length;
-        const hold = allPredictions.filter(p => p.recommendation === 'HOLD').length;
-        const sell = allPredictions.filter(p => p.recommendation === 'SELL').length;
-        const strongSell = allPredictions.filter(p => p.recommendation === 'STRONG SELL').length;
+        const strongBuy = hasTotals ? sb : allPredictions.filter(p => p.recommendation === 'STRONG BUY').length;
+        const buy = hasTotals ? b : allPredictions.filter(p => p.recommendation === 'BUY').length;
+        const hold = hasTotals ? h : allPredictions.filter(p => p.recommendation === 'HOLD').length;
+        const sell = hasTotals ? s : allPredictions.filter(p => p.recommendation === 'SELL').length;
+        const strongSell = hasTotals ? ss : allPredictions.filter(p => p.recommendation === 'STRONG SELL').length;
         
         // Calculate average confidence for stocks with news (not all stocks)
         const stocksWithNews = allPredictions.filter(p => p.news_count > 0);
@@ -328,7 +530,19 @@ function loadPredictions() {
 
 function loadStocks() {
     const tbody = document.getElementById('stocks-tbody');
-    tbody.innerHTML = allPredictions.map(p => `
+    const q = (document.getElementById('stock-search')?.value || '').trim().toLowerCase();
+    const sectorSelected = document.getElementById('sector-filter')?.value || 'all';
+
+    const filtered = (allPredictions || []).filter(p => {
+        const sec = normalizeSector(p.sector);
+        if (sectorSelected !== 'all' && sec !== sectorSelected) return false;
+        if (!q) return true;
+        const t = String(p.ticker ?? '').toLowerCase();
+        const n = String(p.company_name ?? '').toLowerCase();
+        return t.includes(q) || n.includes(q);
+    });
+
+    tbody.innerHTML = filtered.map(p => `
         <tr onclick="showStockDetail('${p.ticker}')">
             <td><strong>${p.ticker}</strong></td>
             <td>${p.company_name || p.ticker}</td>
@@ -339,7 +553,7 @@ function loadStocks() {
             <td class="${p.price_change_percent >= 0 ? 'positive' : 'negative'}">
                 ${p.price_change_percent >= 0 ? '+' : ''}${p.price_change_percent.toFixed(2)}%
             </td>
-            <td>${p.sector || 'N/A'}</td>
+            <td>${escapeHtml(normalizeSector(p.sector))}</td>
             <td><button class="btn-small" onclick="event.stopPropagation(); showStockDetail('${p.ticker}')">View</button></td>
         </tr>
     `).join('');
@@ -347,7 +561,26 @@ function loadStocks() {
 
 function loadNewsPage() {
     const container = document.getElementById('news-list');
-    container.innerHTML = allNews.map(n => `
+    // If user navigates to News, fetch a larger set on-demand for that page.
+    // (Avoids making the whole app sluggish on every refresh.)
+    if (allNews.length < 400) {
+        container.innerHTML = '<div class="loading-spinner"></div>';
+        fetch('http://localhost:8000/api/v1/news/?limit=500&offset=0')
+            .then(r => r.json())
+            .then(d => {
+                allNews = d.articles || allNews;
+                renderNewsList(container, allNews);
+            })
+            .catch(() => {
+                renderNewsList(container, allNews);
+            });
+        return;
+    }
+    renderNewsList(container, allNews);
+}
+
+function renderNewsList(container, newsItems) {
+    container.innerHTML = (newsItems || []).slice(0, 500).map(n => `
         <div class="news-card ${getSentimentClass(n.sentiment_compound)}">
             <div class="news-card-header">
                 <span class="news-source">${n.source}</span>
@@ -366,6 +599,8 @@ function loadNewsPage() {
 }
 
 async function loadAnalytics() {
+    const summary = await API.getPredictionSummary();
+
     // Model performance with improved ML features
     const avgConfidence = allPredictions.reduce((sum, p) => sum + (p.confidence || 0), 0) / allPredictions.length;
     const highConfidence = allPredictions.filter(p => p.confidence > 0.7).length;
@@ -382,7 +617,7 @@ async function loadAnalytics() {
     document.getElementById('model-accuracy').textContent = improvedAccuracy.toFixed(1) + '%';
     document.getElementById('model-confidence').textContent = (avgConfidence * 100).toFixed(1) + '%';
     document.getElementById('model-precision').textContent = adjustedPrecision.toFixed(1) + '%';
-    document.getElementById('model-coverage').textContent = allPredictions.length + ' stocks';
+    document.getElementById('model-coverage').textContent = (totals.predictions ?? allPredictions.length) + ' stocks';
     
     // Data quality metrics - only update if elements exist
     const totalArticlesEl = document.getElementById('total-articles');
@@ -404,13 +639,23 @@ async function loadAnalytics() {
     if (coverageEl) coverageEl.textContent = '100%';
     
     // Distribution
-    const dist = {
-        'STRONG BUY': allPredictions.filter(p => p.recommendation === 'STRONG BUY').length,
-        'BUY': allPredictions.filter(p => p.recommendation === 'BUY').length,
-        'HOLD': allPredictions.filter(p => p.recommendation === 'HOLD').length,
-        'SELL': allPredictions.filter(p => p.recommendation === 'SELL').length,
-        'STRONG SELL': allPredictions.filter(p => p.recommendation === 'STRONG SELL').length
-    };
+    const sb = Number(summary?.strong_buy_count);
+    const b = Number(summary?.buy_count);
+    const h = Number(summary?.hold_count);
+    const s = Number(summary?.sell_count);
+    const ss = Number(summary?.strong_sell_count);
+    const hasTotals =
+        Number.isFinite(sb) && Number.isFinite(b) && Number.isFinite(h) && Number.isFinite(s) && Number.isFinite(ss);
+
+    const dist = hasTotals
+        ? { 'STRONG BUY': sb, 'BUY': b, 'HOLD': h, 'SELL': s, 'STRONG SELL': ss }
+        : {
+              'STRONG BUY': allPredictions.filter(p => p.recommendation === 'STRONG BUY').length,
+              'BUY': allPredictions.filter(p => p.recommendation === 'BUY').length,
+              'HOLD': allPredictions.filter(p => p.recommendation === 'HOLD').length,
+              'SELL': allPredictions.filter(p => p.recommendation === 'SELL').length,
+              'STRONG SELL': allPredictions.filter(p => p.recommendation === 'STRONG SELL').length,
+          };
     
     const total = Object.values(dist).reduce((a, b) => a + b, 0);
     const container = document.getElementById('prediction-distribution');
@@ -447,7 +692,26 @@ async function loadSectorSentiment() {
         const data = await response.json();
         
         if (data.top_sectors && data.top_sectors.length > 0) {
-            container.innerHTML = data.top_sectors.map(sector => {
+            const totalStocks = Number(data.total_stocks || 0);
+            const top = (data.top_sectors || []).filter(s => String(s.sector || '').toLowerCase() !== 'unknown');
+            const shownSum = top.reduce((acc, s) => acc + Number(s.count || 0), 0);
+
+            // Prefer explicit Unknown count if present in bottom_sectors.
+            const unknownFromBottom = (data.bottom_sectors || []).find(
+                s => String(s.sector || '').toLowerCase() === 'unknown'
+            );
+            const unknownCount = Number(unknownFromBottom?.count || 0);
+
+            // "Other sectors" means remaining *known* sectors not shown in top list.
+            const otherKnownCount = Math.max(0, totalStocks - unknownCount - shownSum);
+
+            const rows = [
+                ...top,
+                ...(otherKnownCount > 0 ? [{ sector: 'Other sectors', count: otherKnownCount, avg_score: 0 }] : []),
+                ...(unknownCount > 0 ? [{ sector: 'Unknown', count: unknownCount, avg_score: 0 }] : []),
+            ];
+
+            container.innerHTML = rows.map(sector => {
                 const sentimentPercent = (sector.avg_score * 100).toFixed(1);
                 const isPositive = sector.avg_score >= 0;
                 
@@ -1008,8 +1272,8 @@ async function sendChatMessage() {
     const typingId = addTypingIndicator();
     
     try {
-        // Call chatbot API
-        const response = await fetch('http://localhost:8001/chat', {
+        // Call chatbot API (served by the same backend)
+        const response = await fetch('http://localhost:8000/api/v1/chat', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1637,7 +1901,7 @@ function generateFallbackResponse(message) {
 // Start chatbot service on page load
 async function startChatbotService() {
     try {
-        const response = await fetch('http://localhost:8001/health');
+        const response = await fetch('http://localhost:8000/api/v1/chat/health');
         if (response.ok) {
             console.log('✅ Chatbot service is running');
         }
@@ -1648,3 +1912,43 @@ async function startChatbotService() {
 
 // Initialize chatbot service
 startChatbotService();
+
+
+// ============================================================================
+// DISCLAIMER MODAL
+// ============================================================================
+
+function showFullDisclaimer() {
+    const modal = document.getElementById('disclaimer-modal');
+    if (modal) {
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closeDisclaimerModal() {
+    const modal = document.getElementById('disclaimer-modal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+    }
+}
+
+// Show disclaimer on first visit
+window.addEventListener('DOMContentLoaded', () => {
+    const hasSeenDisclaimer = localStorage.getItem('hasSeenDisclaimer');
+    if (!hasSeenDisclaimer) {
+        setTimeout(() => {
+            showFullDisclaimer();
+            localStorage.setItem('hasSeenDisclaimer', 'true');
+        }, 2000);
+    }
+});
+
+// Close disclaimer modal on outside click
+document.addEventListener('click', (e) => {
+    const modal = document.getElementById('disclaimer-modal');
+    if (modal && e.target === modal) {
+        closeDisclaimerModal();
+    }
+});

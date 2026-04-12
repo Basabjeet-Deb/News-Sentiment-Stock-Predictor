@@ -13,6 +13,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from app.core.config import get_settings, STOCK_TICKERS, PREDICTION_WEIGHTS, RECOMMENDATION_THRESHOLDS
 from app.services.sentiment_service import SentimentService
+from pipeline.ticker_utils import yahoo_ticker_symbol
 
 
 class PredictionService:
@@ -50,8 +51,11 @@ class PredictionService:
                 news_data, ticker
             )
             
-            # Get price data
-            price_info = price_data.get(ticker, {})
+            # Get price data (batch OHLC keys use Yahoo symbol form, e.g. BRK.B -> BRK-B)
+            pk = yahoo_ticker_symbol(ticker)
+            price_info = price_data.get(pk)
+            if price_info is None:
+                price_info = price_data.get(ticker, {})
             
             # Skip if no price data
             if 'error' in price_info or price_info.get('price', 0) == 0:
@@ -61,12 +65,15 @@ class PredictionService:
             prediction_score = self._calculate_prediction_score(
                 sentiment_summary, price_info
             )
+            price_change = float(price_info.get('change_percent', 0) or 0)
+            momentum_norm = max(min(price_change / 10.0, 1.0), -1.0)
+            news_sent = float(sentiment_summary.get('avg_sentiment', 0) or 0)
             
             predictions.append({
                 'ticker': ticker,
                 'company_name': price_info.get('company_name', ticker),
                 'current_price': price_info.get('price', 0),
-                'price_change_percent': price_info.get('change_percent', 0),
+                'price_change_percent': price_change,
                 'sector': price_info.get('sector', 'Unknown'),
                 
                 # Sentiment data
@@ -75,6 +82,9 @@ class PredictionService:
                 'positive_news': sentiment_summary.get('positive_count', 0),
                 'negative_news': sentiment_summary.get('negative_count', 0),
                 'sentiment_recommendation': sentiment_summary.get('recommendation', 'HOLD'),
+                # Explainable ingredients (time-weighted avg in sentiment_summary)
+                'news_sentiment_score': round(news_sent, 4),
+                'momentum_normalized': round(momentum_norm, 4),
                 
                 # Prediction
                 'prediction_score': round(prediction_score, 3),
@@ -136,7 +146,26 @@ class PredictionService:
             return 'HOLD'
     
     def get_cached_predictions(self) -> List[Dict]:
-        """Get cached predictions if available"""
+        """
+        Get cached predictions if available.
+
+        Cache is invalidated automatically when `predictions.csv` changes on disk
+        (e.g., pipeline re-saves after ML forecaster overwrites recommendations).
+        """
+        if not self._cache:
+            return []
+
+        try:
+            path = self.settings.PREDICTIONS_CSV
+            if os.path.exists(path) and self._cache_timestamp is not None:
+                mtime = datetime.fromtimestamp(os.path.getmtime(path))
+                if mtime > self._cache_timestamp:
+                    # Disk is newer than cache → force reload
+                    return []
+        except Exception:
+            # If anything goes wrong, prefer correctness over stale cache.
+            return []
+
         return self._cache
     
     def load_from_csv(self, filepath: str = None) -> List[Dict]:
@@ -161,6 +190,7 @@ class PredictionService:
             df = df.fillna(0)
             predictions = df.to_dict('records')
             self._cache = predictions
+            self._cache_timestamp = datetime.now()
             return predictions
         except Exception as e:
             print(f"Error loading predictions CSV: {e}")

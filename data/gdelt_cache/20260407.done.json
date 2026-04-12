@@ -1,0 +1,11 @@
+{
+  "appended_events": 10,
+  "mapped_events": 10,
+  "meta": {
+    "calls": 1,
+    "day": "2026-04-07",
+    "error": null,
+    "fetched": 25,
+    "http_status": 200
+  }
+}

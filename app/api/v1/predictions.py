@@ -76,7 +76,8 @@ async def get_predictions_summary(
     """
     Get summary statistics for all predictions.
     
-    Includes counts by recommendation type, average sentiment, top/bottom sectors.
+    Includes counts by recommendation type, average sentiment, top/bottom sectors,
+    and validation metrics for transparency.
     """
     predictions = prediction_service.get_cached_predictions()
     if not predictions:
@@ -89,6 +90,25 @@ async def get_predictions_summary(
         }
     
     summary = prediction_service.get_prediction_summary(predictions)
+    
+    # Add validation metrics for transparency
+    total_predictions = len(predictions)
+    predictions_with_news = len([p for p in predictions if p.get('news_count', 0) > 0])
+    avg_news_per_stock = sum(p.get('news_count', 0) for p in predictions) / total_predictions if total_predictions > 0 else 0
+    high_confidence = len([p for p in predictions if p.get('confidence', 0) >= 0.7])
+    
+    summary["validation_metrics"] = {
+        "total_predictions": total_predictions,
+        "predictions_with_news": predictions_with_news,
+        "coverage_rate": f"{(predictions_with_news / total_predictions * 100):.1f}%" if total_predictions > 0 else "0%",
+        "avg_news_per_stock": f"{avg_news_per_stock:.1f}",
+        "high_confidence_predictions": high_confidence,
+        "high_confidence_rate": f"{(high_confidence / total_predictions * 100):.1f}%" if total_predictions > 0 else "0%",
+        "data_freshness": "Real-time",
+        "methodology": "Sentiment Analysis + Price Momentum",
+        "disclaimer": "Educational tool only - Not financial advice"
+    }
+    
     summary["timestamp"] = datetime.now().isoformat()
     
     return summary

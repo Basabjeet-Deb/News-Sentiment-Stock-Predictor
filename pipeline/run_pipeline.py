@@ -18,11 +18,18 @@ import pandas as pd
 from datetime import datetime
 import json
 from scrapy.crawler import CrawlerProcess
+import time
 
 class StockPredictionPipeline:
     """Complete pipeline from news to predictions with validation, caching, and historical data management"""
     
-    def __init__(self):
+    def __init__(self, max_articles=600):
+        """
+        Initialize pipeline
+        
+        Args:
+            max_articles: Maximum articles to process (default 600 for ~1GB RAM budget)
+        """
         self.sentiment_analyzer = SentimentAnalyzer()
         self.price_fetcher = StockPriceFetcher()
         self.validator = DataValidator()
@@ -32,17 +39,26 @@ class StockPredictionPipeline:
         self.news_data = []
         self.price_data = {}
         self.predictions = {}
+        
+        # Performance tracking
+        self.timings = {}
+        self.max_articles = max_articles
     
     def run_complete_pipeline(self):
         """Run the entire pipeline"""
         
+        pipeline_start = time.time()
+        
         print("\n" + "=" * 80)
         print(" [*] STOCK PREDICTION PIPELINE - COMPREHENSIVE RUN")
+        print(f" [*] Max Articles: {self.max_articles} (RAM Budget: ~1GB)")
         print("=" * 80 + "\n")
         
         # Step 1: Fetch News using Scrapy
         print("\n[NEWS] STEP 1: FETCHING NEWS FOR 500+ STOCKS")
         print("-" * 80)
+        
+        step_start = time.time()
         
         # Use Scrapy spider for news scraping
         output_file = 'data/scraped_news.json'
@@ -59,46 +75,88 @@ class StockPredictionPipeline:
         with open(output_file, 'r') as f:
             raw_news = json.load(f)
         
-        print(f"[OK] Fetched {len(raw_news)} articles\n")
+        # Apply article cap with deduplication
+        if len(raw_news) > self.max_articles:
+            print(f"[INFO] Capping articles: {len(raw_news)} -> {self.max_articles}")
+            # Deduplicate by title first
+            seen_titles = set()
+            unique_news = []
+            for article in raw_news:
+                title = article.get('title', '').strip().lower()
+                if title and title not in seen_titles:
+                    seen_titles.add(title)
+                    unique_news.append(article)
+            
+            # Take top N after deduplication
+            raw_news = unique_news[:self.max_articles]
+            print(f"[INFO] After deduplication: {len(raw_news)} unique articles")
+        
+        self.timings['news_fetch'] = time.time() - step_start
+        print(f"[OK] Fetched {len(raw_news)} articles in {self.timings['news_fetch']:.2f}s\n")
         
         # Step 2: Analyze Sentiment
         print("\n[SENTIMENT] STEP 2: ANALYZING SENTIMENT & FILTERING FOR RELEVANCE")
         print("-" * 80)
+        
+        step_start = time.time()
         analyzed_news = self.sentiment_analyzer.analyze_batch(raw_news)
         
         # Filter for relevant/impactful news only
         self.news_data = self.sentiment_analyzer.filter_relevant_impactful(analyzed_news)
-        print(f"[OK] {len(self.news_data)} relevant & impactful articles\n")
+        self.timings['sentiment_analysis'] = time.time() - step_start
+        
+        print(f"[OK] {len(self.news_data)} relevant & impactful articles in {self.timings['sentiment_analysis']:.2f}s\n")
         
         # Step 3: Fetch Stock Prices
         print("\n[PRICES] STEP 3: FETCHING CURRENT STOCK PRICES")
         print("-" * 80)
+        
+        step_start = time.time()
         all_stocks = config.STOCK_TICKERS
         print(f"Fetching prices for {len(all_stocks)} stocks...")
         self.price_data = self.price_fetcher.fetch_current_prices(all_stocks)
-        print(f"[OK] Fetched prices for {len(self.price_data)} stocks\n")
+        self.timings['price_fetch'] = time.time() - step_start
+        
+        print(f"[OK] Fetched prices for {len(self.price_data)} stocks in {self.timings['price_fetch']:.2f}s\n")
         
         # Step 4: Generate Predictions
         print("\n[PREDICT] STEP 4: GENERATING STOCK PREDICTIONS")
         print("-" * 80)
+        
+        step_start = time.time()
         self.predictions = self._generate_predictions()
-        print(f"[OK] Generated predictions for {len(self.predictions)} stocks\n")
+        self.timings['prediction_generation'] = time.time() - step_start
+        
+        print(f"[OK] Generated predictions for {len(self.predictions)} stocks in {self.timings['prediction_generation']:.2f}s\n")
         
         # Step 5: Save Results
         print("\n[SAVE] STEP 5: SAVING RESULTS")
         print("-" * 80)
+        
+        step_start = time.time()
         self._save_results()
-        print("[OK] All data saved to CSV files\n")
+        self.timings['save_results'] = time.time() - step_start
+        
+        print(f"[OK] All data saved to CSV files in {self.timings['save_results']:.2f}s\n")
         
         # Step 6: Add to Historical Data
         print("\n[HISTORY] STEP 6: ADDING TO HISTORICAL DATA")
         print("-" * 80)
+        
+        step_start = time.time()
         self._add_to_historical()
+        self.timings['historical_update'] = time.time() - step_start
         
         # Step 7: Validate Data Quality
         print("\n[VALIDATE] STEP 7: VALIDATING DATA QUALITY")
         print("-" * 80)
+        
+        step_start = time.time()
         self._validate_data()
+        self.timings['validation'] = time.time() - step_start
+        
+        # Calculate total time
+        self.timings['total_pipeline'] = time.time() - pipeline_start
         
         # Step 8: Show Summary
         self._print_summary()
@@ -317,6 +375,19 @@ class StockPredictionPipeline:
         print(f"[NEWS] Articles Analyzed:       {len(self.news_data)}")
         print(f"[PRICE] Stock Prices Fetched:   {len(self.price_data)}")
         print(f"[PRED] Predictions Generated:   {len(self.predictions)}")
+        
+        # Performance timing breakdown
+        print("\n" + "-" * 80)
+        print("[PERFORMANCE] TIMING BREAKDOWN:")
+        print("-" * 80)
+        for stage, duration in self.timings.items():
+            if stage != 'total_pipeline':
+                percentage = (duration / self.timings['total_pipeline'] * 100) if self.timings['total_pipeline'] > 0 else 0
+                print(f"  {stage.replace('_', ' ').title():<30} {duration:>8.2f}s  ({percentage:>5.1f}%)")
+        
+        print("-" * 80)
+        print(f"  {'TOTAL PIPELINE TIME':<30} {self.timings.get('total_pipeline', 0):>8.2f}s  (100.0%)")
+        print("-" * 80)
         
         # Show top recommendations
         if self.predictions:

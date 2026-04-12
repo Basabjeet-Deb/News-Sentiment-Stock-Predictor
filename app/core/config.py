@@ -30,9 +30,17 @@ class Settings(BaseSettings):
     PREDICTIONS_CSV: str = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "data", "predictions.csv")
     PRICES_CSV: str = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "data", "stock_prices.csv")
     
-    # Pipeline settings
-    MAX_ARTICLES: int = 1000
+    # Pipeline settings (fetch limit; dedupe+cap may reduce further via PIPELINE_ARTICLE_CAP)
+    MAX_ARTICLES: int = 500
+    # Hard cap after dedupe before sentiment (RAM budget ~1 GB friendly)
+    PIPELINE_ARTICLE_CAP: int = 500
     CACHE_EXPIRY_MINUTES: int = 30
+    # Sentiment: vader (default, light) | finbert (needs torch+transformers)
+    SENTIMENT_BACKEND: str = "vader"
+    FINBERT_BATCH_SIZE: int = 4
+    FINBERT_MAX_LENGTH: int = 128
+    # Exponential half-life (hours) for ticker-level avg sentiment
+    SENTIMENT_HALF_LIFE_HOURS: float = 24.0
     HISTORICAL_DAYS: int = 7
     
     # Rate limits

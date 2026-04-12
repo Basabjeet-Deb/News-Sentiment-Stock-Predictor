@@ -10,13 +10,20 @@ from typing import List, Dict, Optional
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from pipeline.sentiment_analyzer import SentimentAnalyzer as BaseSentimentAnalyzer
+from app.core.config import get_settings
 
 
 class SentimentService:
     """Service for sentiment analysis of news articles"""
     
     def __init__(self):
-        self.analyzer = BaseSentimentAnalyzer()
+        s = get_settings()
+        self.analyzer = BaseSentimentAnalyzer(
+            sentiment_backend=s.SENTIMENT_BACKEND,
+            finbert_batch_size=s.FINBERT_BATCH_SIZE,
+            finbert_max_length=s.FINBERT_MAX_LENGTH,
+            sentiment_half_life_hours=s.SENTIMENT_HALF_LIFE_HOURS,
+        )
     
     def analyze_article(self, article: Dict) -> Dict:
         """
