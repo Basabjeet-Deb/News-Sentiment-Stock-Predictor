@@ -8,7 +8,7 @@ pydantic-settings>=2.0.0
 aiofiles>=23.2.1
 
 # HTTP Requests
-requests>=2.31.0
+requests>=2.33.1
 aiohttp>=3.9.0
 
 # Data Processing
@@ -27,13 +27,13 @@ yfinance>=0.2.32
 
 # Web Scraping
 beautifulsoup4>=4.12.0
-lxml>=4.9.0
+lxml>=6.1.0
 feedparser>=6.0.10
-scrapy>=2.11.0
+scrapy>=2.15.1
 scrapy-user-agents>=0.1.1
 
 # Utilities
-python-dotenv>=1.0.0
+python-dotenv>=1.2.2
 python-dateutil>=2.8.0
 
 # Rate Limiting
@@ -46,6 +46,13 @@ joblib>=1.3.0
 # ML models used by pipeline/ml_predictor.py (optional)
 xgboost>=2.0.0
 lightgbm>=4.0.0
+optuna>=4.0.0
+
+# Security - pinned to patched versions
+cryptography>=46.0.7
+tornado>=6.5.5
+pillow>=12.2.0
+pygments>=2.20.0
 
 # Plotting used by scripts/backtest.py and pipeline/ml_predictor.py (optional)
 matplotlib>=3.8.0
