@@ -30,7 +30,7 @@ STOCK_TICKERS = [
     'LMT', 'RTX', 'BA', 'NOC', 'GD', 'LHX', 'HII', 'TXT',
     
     # Energy & Oil (impacted by oil/commodity news)
-    'XOM', 'CVX', 'COP', 'SLB', 'EOG', 'MPC', 'PSX', 'VLO', 'OXY', 'HAL', 'BKR', 'DVN', 'FANG', 'HES', 'MRO',
+    'XOM', 'CVX', 'COP', 'SLB', 'EOG', 'MPC', 'PSX', 'VLO', 'OXY', 'HAL', 'BKR', 'DVN', 'FANG', 'MRO',
     
     # Gold/Mining (impacted by gold/commodity news)
     'NEM', 'GOLD', 'FCX', 'AEM', 'WPM', 'FNV',
@@ -45,7 +45,7 @@ STOCK_TICKERS = [
     'CAT', 'DE', 'GE', 'HON', 'UPS', 'UNP', 'MMM', 'EMR', 'ITW', 'ETN',
     
     # Consumer Goods
-    'PG', 'KO', 'PEP', 'PM', 'MO', 'CL', 'EL', 'KMB', 'GIS', 'K',
+    'PG', 'KO', 'PEP', 'PM', 'MO', 'CL', 'EL', 'KMB', 'GIS',
     
     # Telecom
     'T', 'VZ', 'TMUS',
@@ -63,7 +63,7 @@ STOCK_TICKERS = [
     'AMZN', 'SHOP', 'EBAY', 'ETSY', 'W',
     
     # Media & Entertainment
-    'DIS', 'CMCSA', 'NFLX', 'PARA', 'WBD',
+    'DIS', 'CMCSA', 'NFLX', 'WBD',
     
     # Real Estate
     'AMT', 'PLD', 'CCI', 'EQIX', 'PSA', 'SPG', 'O', 'WELL', 'DLR', 'AVB',

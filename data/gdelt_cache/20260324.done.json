@@ -1,11 +1,1 @@
-{
-  "appended_events": 1906,
-  "mapped_events": 0,
-  "meta": {
-    "calls": 1,
-    "day": "2026-03-24",
-    "error": "HTTPSConnectionPool(host='api.gdeltproject.org', port=443): Max retries exceeded with url: /api/v2/doc/doc?query=%28stock+OR+stocks+OR+share+OR+shares+OR+earnings+OR+guidance+OR+%22price+target%22+OR+IPO+OR+merger+OR+acquisition%29&mode=ArtList&format=json&sort=HybridRel&startdatetime=20260324000000&enddatetime=20260325000000&maxrecords=250&startrecord=1 (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.gdeltproject.org', port=443) at 0x222f12a3c90>, 'Connection to api.gdeltproject.org timed out. (connect timeout=30)'))",
-    "fetched": 0,
-    "http_status": null
-  }
-}
+{"date": "20260324", "collected_at": "2026-04-24T12:29:40.884474", "status": "completed"}

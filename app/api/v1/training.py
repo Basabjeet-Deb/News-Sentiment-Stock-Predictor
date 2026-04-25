@@ -48,9 +48,9 @@ async def collect_historical_data(request: CollectDataRequest, background_tasks:
         # Run data collection in background
         def collect_data():
             try:
-                # Run the historical data collection script
+                # Use the quick ML prep script which uses existing cached data
                 result = subprocess.run(
-                    ["python", "pipeline/collect_historical_data.py"],
+                    ["python", "pipeline/quick_ml_prep.py"],
                     capture_output=True,
                     text=True,
                     timeout=600  # 10 minute timeout
@@ -61,6 +61,7 @@ async def collect_historical_data(request: CollectDataRequest, background_tasks:
                 
                 if result.returncode == 0:
                     print(f"[OK] Data collection completed")
+                    print(result.stdout)
                 else:
                     print(f"[ERROR] Data collection failed: {result.stderr}")
                     

@@ -26,14 +26,16 @@ class StockPriceFetcher:
     
     def __init__(self):
         self.price_cache = {}
-        # Reduce yfinance noise (it logs/warns a lot for missing symbols)
+        self._cache_file = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "data", "_price_cache.json"
+        )
+        self._cache_ttl_minutes = 15
         logging.getLogger("yfinance").setLevel(logging.ERROR)
         logging.getLogger("yfinance.base").setLevel(logging.ERROR)
     
-    # Known problematic / non-Yahoo symbols in this project universe (skip quietly)
-    _SKIP_TICKERS = {
-        "ANSS", "CMA", "DAY", "FI", "HES", "IPG", "K", "PARA", "WBA",
-    }
+    # Known problematic / non-Yahoo symbols — kept minimal after config cleanup
+    _SKIP_TICKERS: set = set()
     
     @staticmethod
     def _normalize_ticker_for_yahoo(ticker: str) -> str:
@@ -52,18 +54,31 @@ class StockPriceFetcher:
         tickers = [self._normalize_ticker_for_yahoo(t) for t in tickers]
         tickers = [t for t in tickers if t and t not in self._SKIP_TICKERS]
         
+        # Check disk cache first — skip network if data is fresh
+        import json as _json
+        try:
+            if os.path.exists(self._cache_file):
+                with open(self._cache_file, "r") as _f:
+                    _cached = _json.load(_f)
+                _age_min = (datetime.now().timestamp() - _cached.get("_ts", 0)) / 60
+                if _age_min < self._cache_ttl_minutes:
+                    _data = _cached.get("data", {})
+                    if _data:
+                        print(f"[*] Using cached prices ({_age_min:.1f} min old, TTL={self._cache_ttl_minutes} min)")
+                        self.price_cache = _data
+                        return _data
+        except Exception:
+            pass
+
         print(f"[*] Fetching current prices for {len(tickers)} stocks...")
         
         results = {}
         failed = []
-        batch_size = 100  # prefer fewer calls
-        
-        # Fast path: batch download last 2 days close for all tickers.
-        # This avoids `quoteSummary` 404 spam and is much more reliable than `.info`.
-        try:
-            for i in range(0, len(tickers), batch_size):
-                batch = tickers[i:i + batch_size]
-                # yfinance sometimes prints to stdout for missing symbols; suppress it.
+        batch_size = 200
+
+        for i in range(0, len(tickers), batch_size):
+            batch = tickers[i:i + batch_size]
+            try:
                 with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
                     data = yf.download(
                         tickers=" ".join(batch),
@@ -74,83 +89,31 @@ class StockPriceFetcher:
                         threads=True,
                         progress=False,
                     )
-                
-                # Single ticker vs multi-ticker shape
                 for ticker in batch:
                     try:
-                        if isinstance(data.columns, pd.MultiIndex):
-                            tdf = data[ticker].dropna()
-                        else:
-                            # single ticker: columns like Open/Close...
-                            tdf = data.dropna()
-                        
+                        tdf = data[ticker].dropna() if isinstance(data.columns, pd.MultiIndex) else data.dropna()
                         if tdf is None or len(tdf) < 1:
-                            failed.append(ticker)
-                            continue
-                        
+                            failed.append(ticker); continue
                         close = float(tdf["Close"].iloc[-1])
-                        prev_close = float(tdf["Close"].iloc[-2]) if len(tdf) > 1 else close
-                        change = close - prev_close
-                        change_percent = (change / prev_close) * 100 if prev_close else 0
-                        
+                        prev  = float(tdf["Close"].iloc[-2]) if len(tdf) > 1 else close
+                        chg   = close - prev
                         results[ticker] = {
-                            "ticker": ticker,
-                            "price": close,
-                            "previous_close": prev_close,
-                            "change": change,
-                            "change_percent": change_percent,
-                            # Optional fields not available in batch OHLC:
+                            "ticker": ticker, "price": close, "previous_close": prev,
+                            "change": chg, "change_percent": (chg / prev * 100) if prev else 0,
                             "volume": float(tdf["Volume"].iloc[-1]) if "Volume" in tdf.columns else 0,
-                            "market_cap": 0,
-                            "pe_ratio": 0,
-                            "52w_high": 0,
-                            "52w_low": 0,
-                            "company_name": ticker,
-                            "sector": "Unknown",
-                            "industry": "Unknown",
+                            "market_cap": 0, "pe_ratio": 0, "52w_high": 0, "52w_low": 0,
+                            "company_name": ticker, "sector": "Unknown", "industry": "Unknown",
                         }
                     except Exception:
                         failed.append(ticker)
-                        continue
-        except Exception:
-            # Fallback to original per-ticker approach
-            for ticker in tickers:
-                try:
-                    stock = yf.Ticker(ticker)
-                    hist = stock.history(period="2d")
-                    if len(hist) > 0:
-                        close = float(hist["Close"].iloc[-1])
-                        prev_close = float(hist["Close"].iloc[-2]) if len(hist) > 1 else close
-                    else:
-                        failed.append(ticker)
-                        continue
-                    change = close - prev_close
-                    change_percent = (change / prev_close) * 100 if prev_close else 0
-                    results[ticker] = {
-                        "ticker": ticker,
-                        "price": close,
-                        "previous_close": prev_close,
-                        "change": change,
-                        "change_percent": change_percent,
-                        "volume": 0,
-                        "market_cap": 0,
-                        "pe_ratio": 0,
-                        "52w_high": 0,
-                        "52w_low": 0,
-                        "company_name": ticker,
-                        "sector": "Unknown",
-                        "industry": "Unknown",
-                    }
-                except Exception:
-                    failed.append(ticker)
-                    continue
+            except Exception:
+                failed.extend(batch)
         
         if failed:
             print(f"[!] Skipped {len(failed)} invalid/delisted tickers")
         print(f"[OK] Fetched prices for {len(results)} stocks")
 
         # Enrich sectors/industries from persistent cache (fast path).
-        # NOTE: Do NOT fetch new sectors here by default (yfinance .info is slow and can stall the pipeline).
         try:
             settings = get_settings()
             cache = SectorCache(data_dir=settings.DATA_DIR)
@@ -166,6 +129,14 @@ class StockPriceFetcher:
                 cn = (m.get("company_name") or "").strip()
                 if cn:
                     v["company_name"] = cn
+        except Exception:
+            pass
+
+        # Save to disk cache AFTER enrichment so sectors are persisted
+        try:
+            import json as _json
+            with open(self._cache_file, "w") as _f:
+                _json.dump({"_ts": datetime.now().timestamp(), "data": results}, _f)
         except Exception:
             pass
 

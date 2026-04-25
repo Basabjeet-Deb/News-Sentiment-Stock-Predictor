@@ -258,7 +258,7 @@ async function loadAllData() {
         
         // Keep the dashboard fast: load a smaller news slice on refresh.
         // The full news page can be loaded on-demand.
-        const newsRes = await fetch('http://localhost:8000/api/v1/news/?limit=200&offset=0');
+        const newsRes = await fetch('http://localhost:8000/api/v1/news/?limit=500&offset=0&days=7');
         const newsData = await newsRes.json();
         allNews = [...(newsData.articles || [])];
         
@@ -504,7 +504,7 @@ function loadPredictions() {
                     <div class="pred-metric">
                         <span>Sentiment</span>
                         <strong class="${p.avg_sentiment >= 0 ? 'positive' : 'negative'}">
-                            ${(p.avg_sentiment * 100).toFixed(0)}
+                            ${p.news_count === 0 || p.avg_sentiment === 0 ? 'N/A' : (p.avg_sentiment > 0 ? '+' : '') + (p.avg_sentiment * 100).toFixed(0) + '%'}
                         </strong>
                     </div>
                 </div>
@@ -520,7 +520,7 @@ function loadPredictions() {
                 <td>${p.company_name || p.ticker}</td>
                 <td>$${p.current_price.toFixed(2)}</td>
                 <td><span class="badge ${p.recommendation.toLowerCase().replace(' ', '-')}">${p.recommendation}</span></td>
-                <td class="${p.avg_sentiment >= 0 ? 'positive' : 'negative'}">${(p.avg_sentiment * 100).toFixed(0)}</td>
+                <td class="${p.avg_sentiment >= 0 ? 'positive' : 'negative'}">${p.news_count === 0 || p.avg_sentiment === 0 ? 'N/A' : (p.avg_sentiment > 0 ? '+' : '') + (p.avg_sentiment * 100).toFixed(0) + '%'}</td>
                 <td>${(p.confidence * 100).toFixed(0)}%</td>
                 <td>${p.news_count}</td>
             </tr>
@@ -563,9 +563,9 @@ function loadNewsPage() {
     const container = document.getElementById('news-list');
     // If user navigates to News, fetch a larger set on-demand for that page.
     // (Avoids making the whole app sluggish on every refresh.)
-    if (allNews.length < 400) {
+    if (allNews.length < 1500) {
         container.innerHTML = '<div class="loading-spinner"></div>';
-        fetch('http://localhost:8000/api/v1/news/?limit=500&offset=0')
+        fetch('http://localhost:8000/api/v1/news/?limit=2000&offset=0')
             .then(r => r.json())
             .then(d => {
                 allNews = d.articles || allNews;
@@ -601,42 +601,77 @@ function renderNewsList(container, newsItems) {
 async function loadAnalytics() {
     const summary = await API.getPredictionSummary();
 
-    // Model performance with improved ML features
-    const avgConfidence = allPredictions.reduce((sum, p) => sum + (p.confidence || 0), 0) / allPredictions.length;
-    const highConfidence = allPredictions.filter(p => p.confidence > 0.7).length;
-    
-    // Calculate improved accuracy based on ML features
-    const baseAccuracy = 85.2;
-    const featureBoost = 6.8;
-    const improvedAccuracy = baseAccuracy + featureBoost;
-    
-    // Calculate precision based on high-confidence predictions
-    const precision = (highConfidence / allPredictions.length) * 100;
-    const adjustedPrecision = Math.min(precision + 15, 95);
-    
-    document.getElementById('model-accuracy').textContent = improvedAccuracy.toFixed(1) + '%';
+    // Ensure we have full predictions loaded (not just the 300-item dashboard slice)
+    let preds = allPredictions;
+    if (preds.length < 100) {
+        try {
+            const res = await fetch('http://localhost:8000/api/v1/predictions/?limit=600');
+            const d = await res.json();
+            preds = d.predictions || preds;
+        } catch(e) {}
+    }
+
+    // Real metrics from loaded predictions
+    const avgConfidence = preds.length > 0
+        ? preds.reduce((sum, p) => sum + (p.confidence || 0), 0) / preds.length
+        : 0;
+    const stocksWithNews = preds.filter(p => p.news_count > 0).length;
+    const sentimentCoverage = preds.length > 0
+        ? ((stocksWithNews / preds.length) * 100).toFixed(1) + '%'
+        : '--';
+
+    // Pull real model metrics from pipeline status
+    let modelAccuracy = '--';
+    let modelF1 = '--';
+    let modelAUC = '--';
+    let freshness = 'Unknown';
+    try {
+        const statusRes = await fetch('http://localhost:8000/api/v1/pipeline/status');
+        const statusData = await statusRes.json();
+        const fc = statusData?.last_result?.steps?.forecast;
+        if (fc?.metrics) {
+            modelAccuracy = (fc.metrics.accuracy * 100).toFixed(1) + '%';
+            modelF1       = (fc.metrics.f1 * 100).toFixed(1) + '%';
+            modelAUC      = fc.metrics.auc.toFixed(3);
+        }
+        const lastRun = statusData?.last_result?.completed_at || statusData?.last_run;
+        if (lastRun) {
+            const dt = new Date(lastRun);
+            const diffMin = Math.round((Date.now() - dt) / 60000);
+            freshness = diffMin < 60
+                ? diffMin + ' min ago'
+                : dt.toLocaleDateString() + ' ' + dt.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+        }
+    } catch(e) {}
+
+    document.getElementById('model-accuracy').textContent   = modelAccuracy;
     document.getElementById('model-confidence').textContent = (avgConfidence * 100).toFixed(1) + '%';
-    document.getElementById('model-precision').textContent = adjustedPrecision.toFixed(1) + '%';
-    document.getElementById('model-coverage').textContent = (totals.predictions ?? allPredictions.length) + ' stocks';
-    
-    // Data quality metrics - only update if elements exist
-    const totalArticlesEl = document.getElementById('total-articles');
-    if (totalArticlesEl) totalArticlesEl.textContent = allNews.length;
-    
-    const highImpactEl = document.getElementById('high-impact-news');
-    if (highImpactEl) highImpactEl.textContent = allNews.filter(n => n.impact_level === 'high').length;
-    
-    const stocksWithNewsEl = document.getElementById('stocks-with-news');
-    if (stocksWithNewsEl) stocksWithNewsEl.textContent = allPredictions.filter(p => p.news_count > 0).length;
-    
-    const avgNewsEl = document.getElementById('avg-news-per-stock');
-    if (avgNewsEl) avgNewsEl.textContent = (allNews.length / allPredictions.length).toFixed(1);
-    
-    const freshnessEl = document.getElementById('data-freshness');
-    if (freshnessEl) freshnessEl.textContent = 'Real-time';
-    
-    const coverageEl = document.getElementById('sentiment-coverage');
-    if (coverageEl) coverageEl.textContent = '100%';
+    document.getElementById('model-precision').textContent  = modelF1;
+    document.getElementById('model-coverage').textContent   = modelAUC;
+
+        // Pull real news totals from API summary
+    let totalArticles = allNews.length;
+    let highImpactCount = allNews.filter(n => n.impact_level === 'high').length;
+    let positiveCount = 0, negativeCount = 0;
+    try {
+        const newsRes = await fetch('http://localhost:8000/api/v1/news/summary');
+        const newsData = await newsRes.json();
+        totalArticles   = newsData.total_count ?? totalArticles;
+        highImpactCount = newsData.high_impact_count ?? highImpactCount;
+        positiveCount   = newsData.positive_count ?? 0;
+        negativeCount   = newsData.negative_count ?? 0;
+    } catch(e) {}
+
+    // freshness already set above
+
+    // Update data quality metrics
+    document.getElementById('total-articles').textContent    = totalArticles.toLocaleString();
+    document.getElementById('high-impact-count').textContent = highImpactCount.toLocaleString();
+    document.getElementById('stocks-with-news').textContent  = stocksWithNews;
+    document.getElementById('avg-news-per-stock').textContent = preds.length > 0
+        ? (totalArticles / preds.length).toFixed(1) : '--';
+    document.getElementById('data-freshness').textContent    = freshness;
+    document.getElementById('sentiment-coverage').textContent = sentimentCoverage;
     
     // Distribution
     const sb = Number(summary?.strong_buy_count);
@@ -650,11 +685,11 @@ async function loadAnalytics() {
     const dist = hasTotals
         ? { 'STRONG BUY': sb, 'BUY': b, 'HOLD': h, 'SELL': s, 'STRONG SELL': ss }
         : {
-              'STRONG BUY': allPredictions.filter(p => p.recommendation === 'STRONG BUY').length,
-              'BUY': allPredictions.filter(p => p.recommendation === 'BUY').length,
-              'HOLD': allPredictions.filter(p => p.recommendation === 'HOLD').length,
-              'SELL': allPredictions.filter(p => p.recommendation === 'SELL').length,
-              'STRONG SELL': allPredictions.filter(p => p.recommendation === 'STRONG SELL').length,
+              'STRONG BUY': preds.filter(p => p.recommendation === 'STRONG BUY').length,
+              'BUY': preds.filter(p => p.recommendation === 'BUY').length,
+              'HOLD': preds.filter(p => p.recommendation === 'HOLD').length,
+              'SELL': preds.filter(p => p.recommendation === 'SELL').length,
+              'STRONG SELL': preds.filter(p => p.recommendation === 'STRONG SELL').length,
           };
     
     const total = Object.values(dist).reduce((a, b) => a + b, 0);
@@ -670,14 +705,6 @@ async function loadAnalytics() {
             <div class="dist-value">${count} (${((count / total) * 100).toFixed(1)}%)</div>
         </div>
     `).join('');
-    
-    // Data quality
-    document.getElementById('total-articles').textContent = allNews.length;
-    document.getElementById('high-impact-count').textContent = allNews.filter(n => n.impact_level === 'high').length;
-    document.getElementById('stocks-with-news').textContent = new Set(allNews.map(n => n.ticker)).size;
-    document.getElementById('avg-news-per-stock').textContent = (allNews.length / allPredictions.length).toFixed(1);
-    document.getElementById('data-freshness').textContent = 'Real-time';
-    document.getElementById('sentiment-coverage').textContent = '100%';
     
     // Load sector sentiment and news sources from API
     await loadSectorSentiment();
@@ -927,11 +954,44 @@ async function showStockDetail(ticker) {
     recElem.className = 'stat-value';
     
     const sentElem = document.getElementById('modal-sentiment');
-    sentElem.textContent = (prediction.avg_sentiment * 100).toFixed(0) + '%';
+    sentElem.textContent = (prediction.news_count === 0 || prediction.avg_sentiment === 0) ? 'N/A' : (prediction.avg_sentiment > 0 ? '+' : '') + (prediction.avg_sentiment * 100).toFixed(0) + '%';
     sentElem.className = 'stat-value ' + (prediction.avg_sentiment >= 0 ? 'positive' : 'negative');
     
     document.getElementById('modal-confidence').textContent = (prediction.confidence * 100).toFixed(0) + '%';
     document.getElementById('modal-news-count').textContent = prediction.news_count;
+
+    // ML probability bar
+    const prob = prediction.ml_probability_up ?? 0;
+    const mlDate = prediction.ml_date ?? 'N/A';
+    const mlRec  = prediction.ml_recommendation ?? prediction.recommendation ?? 'HOLD';
+    let mlEl = document.getElementById('modal-ml-section');
+    if (!mlEl) {
+        // inject once
+        const statsEl = document.querySelector('.modal-stats');
+        if (statsEl) {
+            const div = document.createElement('div');
+            div.id = 'modal-ml-section';
+            div.style.cssText = 'margin-top:1rem;padding:0.75rem 1rem;background:#1e293b;border-radius:8px;';
+            statsEl.insertAdjacentElement('afterend', div);
+            mlEl = div;
+        }
+    }
+    if (mlEl) {
+        const pct = Math.round(prob * 100);
+        const barColor = prob >= 0.6 ? '#10b981' : prob <= 0.4 ? '#ef4444' : '#f59e0b';
+        mlEl.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+                <span style="color:#94a3b8;font-size:0.8rem;">ML Probability (Up)</span>
+                <span style="font-weight:700;color:${barColor}">${pct}% &nbsp;·&nbsp; ${mlRec}</span>
+            </div>
+            <div style="background:#0f172a;border-radius:4px;height:8px;overflow:hidden;">
+                <div style="width:${pct}%;height:100%;background:${barColor};border-radius:4px;transition:width 0.4s;"></div>
+            </div>
+            <div style="color:#475569;font-size:0.72rem;margin-top:0.35rem;">
+                Based on data up to: ${mlDate === 'sentiment-only' ? 'N/A' : mlDate} &nbsp;&middot;&nbsp; ${mlDate === 'sentiment-only' ? 'Sentiment fallback' : 'Predicting next trading day &middot; Ensemble(LightGBM+XGB+RF)'}
+            </div>
+        `;
+    }
     
     // Show modal
     document.getElementById('stock-modal').style.display = 'flex';
@@ -1032,7 +1092,18 @@ async function loadChart(ticker, period) {
             },
         });
         
-        // Add candlestick series
+        // Volume histogram (bottom pane)
+        const volumeSeries = chart.addHistogramSeries({
+            color: '#334155',
+            priceFormat: { type: 'volume' },
+            priceScaleId: 'volume',
+        });
+        chart.priceScale('volume').applyOptions({
+            scaleMargins: { top: 0.85, bottom: 0 },
+            borderVisible: false,
+        });
+
+        // Candlestick series
         candlestickSeries = chart.addCandlestickSeries({
             upColor: '#10b981',
             downColor: '#ef4444',
@@ -1041,18 +1112,98 @@ async function loadChart(ticker, period) {
             wickUpColor: '#10b981',
             wickDownColor: '#ef4444',
         });
-        
-        // Format data for chart
+
+        // Format data
         const chartData = data.data.map(d => ({
-            time: d.date.split('T')[0],
+            time: d.date,
             open: d.open,
             high: d.high,
             low: d.low,
-            close: d.close
+            close: d.close,
+            volume: d.volume || 0,
         }));
-        
+
         candlestickSeries.setData(chartData);
+
+        // Volume bars
+        volumeSeries.setData(chartData.map(d => ({
+            time: d.time,
+            value: d.volume,
+            color: d.close >= d.open ? 'rgba(16,185,129,0.4)' : 'rgba(239,68,68,0.4)',
+        })));
+
+        // SMA 20
+        const sma20Series = chart.addLineSeries({
+            color: 'rgba(251,191,36,0.85)',
+            lineWidth: 1,
+            title: 'SMA20',
+            priceLineVisible: false,
+            lastValueVisible: false,
+        });
+        const sma20Data = [];
+        for (let i = 19; i < chartData.length; i++) {
+            const avg = chartData.slice(i - 19, i + 1).reduce((s, d) => s + d.close, 0) / 20;
+            sma20Data.push({ time: chartData[i].time, value: avg });
+        }
+        sma20Series.setData(sma20Data);
+
+        // SMA 50
+        if (chartData.length >= 50) {
+            const sma50Series = chart.addLineSeries({
+                color: 'rgba(139,92,246,0.85)',
+                lineWidth: 1,
+                title: 'SMA50',
+                priceLineVisible: false,
+                lastValueVisible: false,
+            });
+            const sma50Data = [];
+            for (let i = 49; i < chartData.length; i++) {
+                const avg = chartData.slice(i - 49, i + 1).reduce((s, d) => s + d.close, 0) / 50;
+                sma50Data.push({ time: chartData[i].time, value: avg });
+            }
+            sma50Series.setData(sma50Data);
+        }
+
         chart.timeScale().fitContent();
+
+        // Sentiment trend overlay — group news by date, average sentiment
+        const newsForTicker = allNews.filter(n =>
+            n.ticker === ticker || (n.title && n.title.toUpperCase().includes(ticker))
+        );
+        if (newsForTicker.length > 1) {
+            const byDate = {};
+            newsForTicker.forEach(n => {
+                // Normalise any date format to yyyy-mm-dd
+                let raw = n.scraped_at || n.published_at || '';
+                let d = '';
+                try {
+                    const dt = new Date(raw);
+                    if (!isNaN(dt)) {
+                        d = dt.toISOString().split('T')[0];
+                    }
+                } catch(e) {}
+                if (!d || d.length < 10) return;
+                if (!byDate[d]) byDate[d] = [];
+                byDate[d].push(parseFloat(n.sentiment_compound) || 0);
+            });
+            const sentData = Object.entries(byDate)
+                .map(([d, vals]) => ({ time: d, value: vals.reduce((a,b)=>a+b,0)/vals.length }))
+                .sort((a,b) => a.time.localeCompare(b.time));
+
+            if (sentData.length > 1) {
+                const sentSeries = chart.addLineSeries({
+                    color: 'rgba(251,191,36,0.7)',
+                    lineWidth: 1,
+                    priceScaleId: 'sentiment',
+                    title: 'Sentiment',
+                });
+                chart.priceScale('sentiment').applyOptions({
+                    scaleMargins: { top: 0.8, bottom: 0 },
+                    borderVisible: false,
+                });
+                sentSeries.setData(sentData);
+            }
+        }
         
         // Handle resize
         const resizeHandler = () => {

@@ -197,8 +197,8 @@ async def get_stock_price(
 @router.get("/{ticker}/history")
 async def get_stock_history(
     ticker: str,
-    period: str = Query("1mo", regex="^(1d|5d|1mo|3mo|6mo|1y|2y|5y|max)$"),
-    interval: str = Query("1d", regex="^(1m|5m|15m|1h|1d|1wk|1mo)$"),
+    period: str = Query("1mo", pattern="^(1d|5d|1mo|3mo|6mo|1y|2y|5y|max)$"),
+    interval: str = Query("1d", pattern="^(1m|5m|15m|1h|1d|1wk|1mo)$"),
     price_service: PriceService = Depends(get_price_service)
 ):
     """
@@ -218,8 +218,13 @@ async def get_stock_history(
         # Convert to list of dicts for JSON
         data = []
         for index, row in history.iterrows():
+            # LightweightCharts requires yyyy-mm-dd — strip time/timezone
+            try:
+                date_str = index.strftime("%Y-%m-%d")
+            except Exception:
+                date_str = str(index)[:10]
             data.append({
-                "date": index.isoformat(),
+                "date": date_str,
                 "open": float(row['Open']),
                 "high": float(row['High']),
                 "low": float(row['Low']),

@@ -150,8 +150,8 @@ class PatternAnalyzer:
     def _analyze_temporal_patterns(self, df: pd.DataFrame) -> Dict:
         """Analyze patterns by time (day of week, time of day)"""
         
-        # Convert published_at to datetime
-        df['published_dt'] = pd.to_datetime(df['published_at'], errors='coerce')
+        # Convert published_at to datetime with UTC timezone
+        df['published_dt'] = pd.to_datetime(df['published_at'], errors='coerce', utc=True)
         df['day_of_week'] = df['published_dt'].dt.day_name()
         df['hour'] = df['published_dt'].dt.hour
         
@@ -297,7 +297,7 @@ class PatternAnalyzer:
         
         # 4. Temporal Features
         print("[4/8] Creating temporal features...")
-        df['published_dt'] = pd.to_datetime(df['published_at'], errors='coerce')
+        df['published_dt'] = pd.to_datetime(df['published_at'], errors='coerce', utc=True)
         df['day_of_week'] = df['published_dt'].dt.dayofweek
         df['hour_of_day'] = df['published_dt'].dt.hour
         df['is_weekend'] = (df['day_of_week'] >= 5).astype(int)
@@ -403,31 +403,31 @@ class PatternAnalyzer:
         
         # Sentiment Impact
         if 'sentiment_impact' in self.patterns:
-            print("\n📊 SENTIMENT IMPACT:")
+            print("\n[SENTIMENT IMPACT]:")
             print(f"   {self.patterns['sentiment_impact']['insight']}")
         
         # Keyword Impact
         if 'keyword_impact' in self.patterns:
-            print("\n🔑 HIGH-IMPACT KEYWORDS:")
+            print("\n[HIGH-IMPACT KEYWORDS]:")
             for category, data in list(self.patterns['keyword_impact'].items())[:5]:
                 print(f"   {category.upper()}: {data['count']} articles, "
                       f"avg sentiment: {data['avg_sentiment']:.3f}")
         
         # Source Reliability
         if 'source_reliability' in self.patterns:
-            print("\n📰 TOP NEWS SOURCES:")
+            print("\n[TOP NEWS SOURCES]:")
             for source, count in list(self.patterns['source_reliability']['top_by_volume'].items())[:5]:
                 print(f"   {source}: {count} articles")
         
         # Volume Patterns
         if 'volume' in self.patterns:
-            print("\n📈 VOLUME PATTERNS:")
+            print("\n[VOLUME PATTERNS]:")
             print(f"   Avg daily articles: {self.patterns['volume'].get('avg_daily_articles', 0):.0f}")
             print(f"   Max daily articles: {self.patterns['volume'].get('max_daily_articles', 0)}")
         
         # Ticker Patterns
         if 'ticker_specific' in self.patterns:
-            print("\n🎯 TOP TICKERS BY COVERAGE:")
+            print("\n[TOP TICKERS BY COVERAGE]:")
             for ticker, count in list(self.patterns['ticker_specific']['top_by_volume'].items())[:10]:
                 print(f"   {ticker}: {count} articles")
         

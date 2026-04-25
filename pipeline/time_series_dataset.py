@@ -111,7 +111,11 @@ class TimeSeriesDatasetBuilder:
         existing_keys = set()
         if os.path.exists(self.paths.news_events_csv):
             try:
-                existing = pd.read_csv(self.paths.news_events_csv, usecols=["_dedupe_key"])
+                existing = pd.read_csv(
+                    self.paths.news_events_csv,
+                    usecols=["_dedupe_key"],
+                    on_bad_lines="skip",
+                )
                 existing_keys = set(existing["_dedupe_key"].dropna().astype(str).tolist())
             except Exception:
                 existing_keys = set()
@@ -120,10 +124,128 @@ class TimeSeriesDatasetBuilder:
         if df.empty:
             return 0
 
-        # Append
+        # Append — use QUOTE_ALL to prevent commas/newlines in description from breaking CSV
+        import csv
         write_header = not os.path.exists(self.paths.news_events_csv)
-        df.to_csv(self.paths.news_events_csv, mode="a", header=write_header, index=False)
+        df.to_csv(
+            self.paths.news_events_csv,
+            mode="a",
+            header=write_header,
+            index=False,
+            quoting=csv.QUOTE_ALL,
+        )
         return len(df)
+
+    def _compute_technical_features(self, tickers: List[str], lookback_days: int) -> pd.DataFrame:
+        """
+        Compute technical indicators for each ticker:
+        - RSI(14): momentum oscillator
+        - MACD signal: trend/momentum
+        - Bollinger Band position: mean-reversion signal
+        - Volume ratio: unusual volume vs 20-day avg
+        - Price trend: 5d vs 20d SMA ratio
+        - ATR(14): volatility
+        """
+        end   = datetime.now(timezone.utc).date()
+        # Need extra history for indicator warmup (200 days)
+        start = end - timedelta(days=lookback_days + 200)
+
+        tickers_norm = [str(t).strip().upper().replace(".", "-") for t in tickers if str(t).strip()]
+        tickers_norm = sorted(list(dict.fromkeys(tickers_norm)))
+
+        def _chunks(xs, n):
+            return [xs[i:i+n] for i in range(0, len(xs), n)]
+
+        all_rows = []
+        for chunk in _chunks(tickers_norm, 75):
+            try:
+                with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                    data = yf.download(
+                        tickers=" ".join(chunk),
+                        start=str(start),
+                        end=str(end + timedelta(days=1)),
+                        interval="1d",
+                        group_by="ticker",
+                        auto_adjust=False,
+                        threads=True,
+                        progress=False,
+                    )
+            except Exception:
+                continue
+
+            for t in chunk:
+                try:
+                    if isinstance(getattr(data, "columns", None), pd.MultiIndex):
+                        if t not in data.columns.get_level_values(0):
+                            continue
+                        tdf = data[t].copy()
+                    else:
+                        tdf = data.copy()
+                    if tdf is None or tdf.empty or "Close" not in tdf.columns:
+                        continue
+
+                    tdf = tdf.dropna(subset=["Close"]).copy().reset_index()
+                    date_col = "Date" if "Date" in tdf.columns else tdf.columns[0]
+                    tdf["date"] = pd.to_datetime(tdf[date_col], errors="coerce").dt.date.astype(str)
+                    tdf = tdf.sort_values("date").reset_index(drop=True)
+                    tdf["close"] = pd.to_numeric(tdf["Close"], errors="coerce")
+                    tdf["volume"] = pd.to_numeric(tdf.get("Volume", 0), errors="coerce").fillna(0)
+                    tdf["high"]   = pd.to_numeric(tdf.get("High",  tdf["close"]), errors="coerce")
+                    tdf["low"]    = pd.to_numeric(tdf.get("Low",   tdf["close"]), errors="coerce")
+                    tdf = tdf[tdf["close"].notna()].copy()
+                    if len(tdf) < 20:
+                        continue
+
+                    c = tdf["close"]
+
+                    # RSI(14)
+                    delta = c.diff()
+                    gain  = delta.clip(lower=0).rolling(14, min_periods=1).mean()
+                    loss  = (-delta.clip(upper=0)).rolling(14, min_periods=1).mean()
+                    rs    = gain / loss.replace(0, np.nan)
+                    tdf["rsi14"] = (100 - 100 / (1 + rs)).fillna(50)
+
+                    # MACD signal line (12/26/9)
+                    ema12 = c.ewm(span=12, adjust=False).mean()
+                    ema26 = c.ewm(span=26, adjust=False).mean()
+                    macd  = ema12 - ema26
+                    signal= macd.ewm(span=9, adjust=False).mean()
+                    tdf["macd_hist"] = (macd - signal).fillna(0)  # positive = bullish
+
+                    # Bollinger Band position (0=lower band, 1=upper band)
+                    sma20  = c.rolling(20, min_periods=1).mean()
+                    std20  = c.rolling(20, min_periods=1).std().fillna(0)
+                    upper  = sma20 + 2 * std20
+                    lower  = sma20 - 2 * std20
+                    band_w = (upper - lower).replace(0, np.nan)
+                    tdf["bb_pos"] = ((c - lower) / band_w).clip(0, 1).fillna(0.5)
+
+                    # Volume ratio vs 20-day avg
+                    vol_avg = tdf["volume"].rolling(20, min_periods=1).mean().replace(0, np.nan)
+                    tdf["vol_ratio"] = (tdf["volume"] / vol_avg).fillna(1.0).clip(0, 10)
+
+                    # Price trend: 5d SMA / 20d SMA (>1 = uptrend)
+                    sma5  = c.rolling(5,  min_periods=1).mean()
+                    tdf["price_trend"] = (sma5 / sma20.replace(0, np.nan)).fillna(1.0)
+
+                    # ATR(14) normalised by price
+                    tr = pd.concat([
+                        tdf["high"] - tdf["low"],
+                        (tdf["high"] - c.shift()).abs(),
+                        (tdf["low"]  - c.shift()).abs(),
+                    ], axis=1).max(axis=1)
+                    atr14 = tr.rolling(14, min_periods=1).mean()
+                    tdf["atr_pct"] = (atr14 / c.replace(0, np.nan)).fillna(0)
+
+                    tdf["ticker"] = t
+                    keep = ["ticker", "date", "rsi14", "macd_hist", "bb_pos", "vol_ratio", "price_trend", "atr_pct"]
+                    all_rows.append(tdf[keep])
+                except Exception:
+                    continue
+
+        if not all_rows:
+            return pd.DataFrame()
+        return pd.concat(all_rows, ignore_index=True)
 
     def build_daily_panel(
         self,
@@ -137,7 +259,7 @@ class TimeSeriesDatasetBuilder:
         if not os.path.exists(self.paths.news_events_csv):
             raise FileNotFoundError("news_events.csv not found. Run pipeline scraping first.")
 
-        events = pd.read_csv(self.paths.news_events_csv)
+        events = pd.read_csv(self.paths.news_events_csv, on_bad_lines="skip")
         events["scraped_at"] = pd.to_datetime(events["scraped_at"], errors="coerce", utc=True)
         events = events[events["scraped_at"].notna()].copy()
 
@@ -234,6 +356,25 @@ class TimeSeriesDatasetBuilder:
             panel[f"news_count_roll{win}"] = (
                 panel.groupby("ticker")["news_count"].transform(lambda s: s.rolling(win, min_periods=1).sum())
             )
+
+        # Add technical indicators
+        print("[PANEL] Computing technical indicators (RSI, MACD, Bollinger, Volume, Trend)...")
+        try:
+            tech = self._compute_technical_features(tickers, lookback_days)
+            if not tech.empty:
+                panel = panel.merge(tech, on=["ticker", "date"], how="left")
+                tech_cols = ["rsi14", "macd_hist", "bb_pos", "vol_ratio", "price_trend", "atr_pct"]
+                for c in tech_cols:
+                    if c in panel.columns:
+                        # Fill with neutral defaults where missing
+                        defaults = {"rsi14": 50.0, "macd_hist": 0.0, "bb_pos": 0.5,
+                                    "vol_ratio": 1.0, "price_trend": 1.0, "atr_pct": 0.0}
+                        panel[c] = pd.to_numeric(panel[c], errors="coerce").fillna(defaults.get(c, 0.0))
+                print(f"[PANEL] Technical features added: {tech_cols}")
+            else:
+                print("[PANEL] No technical features computed (price data unavailable)")
+        except Exception as e:
+            print(f"[PANEL] Technical features skipped: {e}")
 
         # Save
         panel.to_csv(self.paths.daily_panel_csv, index=False)

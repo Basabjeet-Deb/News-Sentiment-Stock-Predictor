@@ -195,10 +195,7 @@ class PipelineService:
                         t = str(p.get("ticker", "")).upper()
                         if t in ml_map:
                             p.update(ml_map[t])
-                            # Replace fields used by UI sorting/filters with ML outputs
                             p["prediction_score"] = round(p.get("ml_score", p.get("prediction_score", 0.0)), 3)
-                            # Confidence: keep the stronger of sentiment-confidence and ML-confidence.
-                            # (ML confidence can be low when probabilities are near 0.5 even if ranking is useful.)
                             try:
                                 base_conf = float(p.get("confidence", 0.0) or 0.0)
                             except Exception:
@@ -208,7 +205,55 @@ class PipelineService:
                             except Exception:
                                 ml_conf = 0.0
                             p["confidence"] = round(max(base_conf, ml_conf), 3)
-                            p["recommendation"] = p.get("ml_recommendation", p.get("recommendation", "HOLD"))
+
+                            # Blend ML and sentiment when they strongly disagree.
+                            # If sentiment is strongly negative (< -0.3) but ML says BUY/STRONG BUY,
+                            # or sentiment is strongly positive (> 0.3) but ML says SELL/STRONG SELL,
+                            # downgrade to HOLD to avoid misleading signals.
+                            ml_rec  = p.get("ml_recommendation", "HOLD")
+                            sent    = float(p.get("avg_sentiment", 0.0) or 0.0)
+                            news_ct = int(p.get("news_count", 0) or 0)
+
+                            strong_conflict = (
+                                news_ct > 0 and (
+                                    (sent < -0.3 and ml_rec in ("BUY", "STRONG BUY")) or
+                                    (sent >  0.3 and ml_rec in ("SELL", "STRONG SELL"))
+                                )
+                            )
+                            if strong_conflict:
+                                # Downgrade: strong disagreement → HOLD
+                                p["recommendation"] = "HOLD"
+                                p["ml_recommendation"] = "HOLD"
+                            else:
+                                p["recommendation"] = ml_rec
+                        else:
+                            # Not in ML panel — fall back to sentiment-driven values
+                            # so the UI never shows prob=0 or a flat HOLD for everything.
+                            sent = float(p.get("avg_sentiment", 0.0) or 0.0)
+                            # Map sentiment [-1,1] to probability [0,1]
+                            prob = round(0.5 + sent * 0.3, 4)
+                            prob = max(0.05, min(0.95, prob))
+                            score = round((prob - 0.5) * 2, 4)
+                            conf = round(abs(sent) * 0.6, 4)
+                            # Recommendation from sentiment score
+                            if sent >= 0.5:
+                                rec = "STRONG BUY"
+                            elif sent >= 0.15:
+                                rec = "BUY"
+                            elif sent <= -0.5:
+                                rec = "STRONG SELL"
+                            elif sent <= -0.15:
+                                rec = "SELL"
+                            else:
+                                rec = "HOLD"
+                            p["ml_probability_up"] = prob
+                            p["ml_confidence"] = conf
+                            p["ml_score"] = score
+                            p["ml_recommendation"] = rec
+                            p["ml_date"] = "sentiment-only"
+                            p["prediction_score"] = round(p.get("prediction_score", score), 3)
+                            p["recommendation"] = p.get("sentiment_recommendation", rec)
+                            p["confidence"] = round(max(float(p.get("confidence", 0.0) or 0.0), conf), 3)
 
                     # Re-save predictions.csv with ML columns included
                     self._save_results(filtered_news, predictions, prices)

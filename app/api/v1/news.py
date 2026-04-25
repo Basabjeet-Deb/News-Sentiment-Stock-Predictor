@@ -20,20 +20,19 @@ async def get_news(
     min_sentiment: Optional[float] = Query(None, ge=-1, le=1, description="Minimum sentiment score"),
     max_sentiment: Optional[float] = Query(None, ge=-1, le=1, description="Maximum sentiment score"),
     impact_level: Optional[str] = Query(None, description="Filter by impact level (high, medium, macro, low)"),
-    limit: int = Query(50, ge=1, le=500, description="Maximum articles"),
+    days: Optional[int] = Query(None, ge=1, le=90, description="Only return articles from last N days"),
+    limit: int = Query(100, ge=1, le=5000, description="Maximum articles"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
     news_service: NewsService = Depends(get_news_service)
 ):
     """
     Get analyzed news articles with optional filtering.
-    
-    Returns news articles with sentiment scores and relevance information.
+    Reads from the full historical store (news_events.csv) — 200k+ articles.
     """
-    # Load news from cache or CSV
     news = news_service.get_cached_news()
     if not news:
         news = news_service.load_from_csv()
-    
+
     if not news:
         return {
             "total_count": 0,
@@ -41,8 +40,7 @@ async def get_news(
             "message": "No news available. Run the pipeline first.",
             "timestamp": datetime.now().isoformat()
         }
-    
-    # Filter
+
     filtered = news_service.filter_news(
         news,
         ticker=ticker,
@@ -50,12 +48,18 @@ async def get_news(
         min_sentiment=min_sentiment,
         max_sentiment=max_sentiment,
         impact_level=impact_level,
+        days=days,
         limit=limit,
         offset=offset
     )
-    
+
+    from app.services.news_service import NewsService as _NS
+    df = _NS._global_cache_df
+    total = len(df) if df is not None else 0
+
     return {
-        "total_count": len(filtered),
+        "total_count": total,
+        "returned": len(filtered),
         "articles": filtered,
         "timestamp": datetime.now().isoformat()
     }
@@ -67,22 +71,20 @@ async def get_news_summary(
 ):
     """
     Get summary statistics for news articles.
-    
-    Includes counts by source, ticker mentions, and sentiment distribution.
+    Reports total from the full historical store.
     """
     news = news_service.get_cached_news()
     if not news:
         news = news_service.load_from_csv()
-    
+
     if not news:
         return {
             "message": "No news available. Run the pipeline first.",
             "timestamp": datetime.now().isoformat()
         }
-    
+
     summary = news_service.get_news_summary(news)
     summary["timestamp"] = datetime.now().isoformat()
-    
     return summary
 
 

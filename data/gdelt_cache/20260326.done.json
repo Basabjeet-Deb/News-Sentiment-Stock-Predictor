@@ -1,11 +1,1 @@
-{
-  "appended_events": 2038,
-  "mapped_events": 132,
-  "meta": {
-    "calls": 1,
-    "day": "2026-03-26",
-    "error": null,
-    "fetched": 250,
-    "http_status": 200
-  }
-}
+{"date": "20260326", "collected_at": "2026-04-24T12:29:40.884474", "status": "completed"}
