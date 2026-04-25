@@ -1,271 +1,231 @@
-# 📈 News Sentiment Based Stock Predictor
+# News Sentiment Based Stock Predictor
 
-A high-performance, real-time stock analysis engine that combines massive news scraping (5000+ articles), advanced VADER sentiment analysis, and Machine Learning to predict stock market impacts.
-
----
-
-## ⚖️ License & Copyright
-
-**Project:** News Sentiment Based Stock Predictor  
-**Copyright © 2026 Basabjeet Deb. All Rights Reserved.**
-
-This software is proprietary and confidential. Unauthorized copying, distribution, modification, or use of this software is strictly prohibited and will result in legal action. See [LICENSE](LICENSE) file for full terms.
-
-For licensing inquiries: basabjeet.557@gmail.com
+> **Proprietary Software** — © 2026 Basabjeet Deb. All rights reserved.  
+> Unauthorized copying, distribution, or commercial use is strictly prohibited.  
+> See [LICENSE](LICENSE) for full terms.
 
 ---
 
-## 🏗 System Architecture & Pipeline
+A full-stack AI system that scrapes financial news, analyzes sentiment, computes technical indicators, and generates next-day stock direction predictions using an ensemble ML model.
 
-The following diagram illustrates the data flow from raw news sources to final stock recommendations:
+---
+
+## Architecture
 
 ```mermaid
-graph TD
-    A[News Sources: Reuters, Bloomberg, etc.] -->|Scraping| B(pipeline/news_spider.py)
-    B -->|Raw articles| C(pipeline/sentiment_analyzer.py)
-    C -->|Calculates sentiment scores| D{Impact Analyzer}
-    
-    D -->|Predictions| E(pipeline/ml_predictor.py)
-    F[Stock Prices: Yahoo Finance] -->|Real-time data| G(pipeline/price_fetcher.py)
-    G -->|Price metrics| E
-    
-    E -->|Ensemble ML models| H(pipeline/run_pipeline.py)
-    H -->|Saves data| I[(data/predictions.csv)]
-    
-    I -->|Fetches data| J[FastAPI Backend: app/main.py]
-    J -->|Serves UI| K[Dashboard: frontend/index.html]
-    K -->|Interactive Chat| L[AI Chatbot Widget]
+flowchart TD
+    A[RSS Feeds\nGoogle News · Yahoo Finance\nReuters · CNBC · MarketWatch] -->|Scrapy Spider| B[Raw News JSON\ndata/gdelt_cache/]
+    B -->|collect_missing_dates.py| C[news_events.csv\n257k+ articles]
+    C -->|VADER Sentiment| D[Daily Panel\nticker × date features]
+    E[yfinance\nPrice History] -->|RSI · MACD · BB · Volume\nSMA · ATR| D
+    D -->|Optuna Tuning| F[Ensemble Model\nLightGBM + XGBoost + RF]
+    F -->|predict_latest| G[ML Predictions\nprob_up · recommendation]
+    G --> H[FastAPI\nlocalhost:8000]
+    H --> I[Frontend\nlocalhost:3000]
 ```
 
 ---
 
-## 🛠 Project Components & File Structure
+## ML Pipeline
 
-### 📡 Data Pipeline (`/pipeline`)
-| File | Responsibility |
-| :--- | :--- |
-| **`news_spider.py`** | Scrapy spider for high-speed news collection. |
-| **`sentiment_analyzer.py`** | VADER-based scoring and fuzzy deduplication. |
-| **`impact_analyzer.py`** | Causal reasoning engine for stock/sector correlation. |
-| **`price_fetcher.py`** | Yahoo Finance client for real-time and historical data. |
-| **`ml_predictor.py`** | Ensemble of 6 ML models (XGBoost, Random Forest, etc.). |
-| **`run_pipeline.py`** | Main orchestrator to run the full stack end-to-end. |
-
-### 🌐 Application & UI
-| Directory | Description |
-| :--- | :--- |
-| **`/app`** | FastAPI backend providing API endpoints for the dashboard. |
-| **`/frontend`** | Modern dashboard with real-time charts and a floating AI chat widget. |
-| **`/data`** | Persistent storage for scraped news, prices, and predictions. |
+```mermaid
+flowchart LR
+    subgraph Features [23 Features]
+        S[Sentiment\nsent_mean · sent_std\nrolling 3d · 7d]
+        T[Technical\nRSI14 · MACD · Bollinger\nVolume ratio · SMA trend · ATR]
+        P[Price\nreturn_lag1 · return_lag2\nvol_5d]
+    end
+    Features --> E[Ensemble\nLightGBM × 1.2\nXGBoost × 1.0\nRandomForest × 0.8]
+    E --> R[Recommendation\nSTRONG BUY · BUY · HOLD\nSELL · STRONG SELL]
+    E --> C[Conflict Check\nML vs Sentiment\nDisagreement → HOLD]
+```
 
 ---
 
-## 🚀 Getting Started
+## Daily Update Flow
 
-### 1. Installation
-Install the necessary dependencies:
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant S as Spider
+    participant P as Panel Builder
+    participant M as ML Model
+    participant A as API
+
+    U->>S: python collect_missing_dates.py --today --run-pipeline
+    S->>S: Scrape RSS feeds (530 articles)
+    S->>P: Ingest into news_events.csv
+    P->>P: Compute technical indicators
+    P->>P: Rebuild daily_panel.csv
+    P->>M: Retrain Ensemble (Optuna 30 trials)
+    M->>A: POST /api/v1/pipeline/run
+    A->>A: Fetch prices (3 batches × 200 tickers)
+    A->>A: Merge ML + sentiment predictions
+    A-->>U: 528 predictions ready
+```
+
+---
+
+## Project Structure
+
+```
+├── app/                        # FastAPI backend
+│   ├── api/v1/                 # Endpoints: predictions, news, stocks, pipeline, training
+│   ├── core/                   # Config, security, thresholds
+│   ├── middleware/             # Rate limiting, CORS
+│   └── services/               # Business logic: news, predictions, prices, sentiment
+│
+├── pipeline/                   # ML & data pipeline
+│   ├── news_spider.py          # Scrapy spider (RSS feeds, anti-blocking)
+│   ├── sentiment_analyzer.py   # VADER sentiment analysis
+│   ├── price_fetcher.py        # yfinance batch fetch + 15min disk cache
+│   ├── time_series_dataset.py  # Panel builder + technical indicators
+│   ├── forecaster.py           # Ensemble model + Optuna tuning
+│   └── sector_mapper.py        # Sector/industry cache
+│
+├── frontend/                   # Vanilla JS SPA
+│   ├── index.html              # Dashboard, Predictions, Stocks, News, Analytics, Training
+│   ├── app.js                  # All UI logic + chatbot
+│   └── styles.css
+│
+├── data/
+│   ├── gdelt_cache/            # 48 dates of raw news (Mar 9 – Apr 25, 2026)
+│   ├── news_events.csv         # 257k+ historical articles
+│   ├── daily_panel.csv         # ticker × date ML features
+│   ├── forecaster_model.pkl    # Trained ensemble model
+│   └── forecaster_meta.json    # Model metrics
+│
+├── collect_missing_dates.py    # Master maintenance script
+├── collect_one_date.py         # Single-date spider runner
+└── config.py                   # 541 tracked tickers
+```
+
+---
+
+## Quick Start
+
+### 1. Install dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Start the Backend
+### 2. Start the API
 ```bash
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-### 3. Run the Data Pipeline
-To refresh the predictions and analysis:
+### 3. Start the frontend
 ```bash
-python pipeline/run_pipeline.py
+python -m http.server 3000 --directory frontend
+```
+
+### 4. Run the pipeline
+```bash
+# Trigger via API
+curl -X POST http://localhost:8000/api/v1/pipeline/run
+
+# Or open http://localhost:3000 and click Run
+```
+
+### 5. Daily update (collect today + retrain)
+```bash
+python collect_missing_dates.py --today --run-pipeline
 ```
 
 ---
 
-## ✨ Key Features
-- ✅ **Ultra-Fast Web Scraping**: 5000+ articles in ~30 seconds via Scrapy spiders.
-- ✅ **No API Keys Required**: All news data collected through web scraping.
-- ✅ **Intelligent Sentiment**: VADER analysis with sector-aware impact weighting.
-- ✅ **Modern UI**: Dark-mode glassmorphism dashboard.
-- ✅ **Interactive AI**: Floating chatbot for stocks-specific insights.
-- ✅ **Robust Predictions**: Ensemble ML approach for higher reliability.
+## API Endpoints
 
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/v1/predictions/` | All predictions (limit, offset, filter) |
+| `GET` | `/api/v1/predictions/summary` | Counts by recommendation + sector |
+| `GET` | `/api/v1/predictions/{ticker}` | Single stock prediction |
+| `GET` | `/api/v1/news/` | Historical news (257k, paginated, filterable) |
+| `GET` | `/api/v1/news/summary` | Total count, sentiment distribution |
+| `GET` | `/api/v1/stocks/{ticker}/history` | OHLCV candlestick data |
+| `POST` | `/api/v1/pipeline/run` | Run full pipeline (background) |
+| `GET` | `/api/v1/pipeline/status` | Pipeline progress + last result |
+| `POST` | `/api/v1/training/collect-data` | Rebuild ML training data |
+| `POST` | `/api/v1/training/train-model` | Retrain forecaster |
 
----
-
-## ⚠️ IMPORTANT DISCLAIMERS & LIMITATIONS
-
-### 🎓 Educational Purpose Only
-
-**THIS SOFTWARE IS FOR EDUCATIONAL AND RESEARCH PURPOSES ONLY.**
-
-This application demonstrates sentiment analysis techniques, data visualization, and software engineering practices. It is **NOT** intended for actual trading or investment decisions.
-
-### ⚖️ Not Financial Advice
-
-The predictions, recommendations, and analysis provided by this system **DO NOT constitute financial, investment, or trading advice**. The creator and operators of this system are not licensed financial advisors, brokers, or investment professionals.
-
-**Always consult a licensed financial advisor before making any investment decisions.**
-
-### 📊 Known Limitations & Methodology Constraints
-
-#### Data Quality Issues
-- **Limited News Sources**: Scrapes from public sources only; may miss critical information
-- **Web Scraping Risks**: Sites can block access (403/401 errors), leading to incomplete data
-- **Delisted Tickers**: Some stocks may be delisted or have no price data available
-- **Sample Size**: Currently processes 600 articles (RAM-constrained); larger datasets may yield different results
-- **No Real-time Updates**: Requires manual pipeline runs; not continuously updated
-
-#### Methodology Limitations
-- **Sentiment ≠ Performance**: News sentiment does not reliably predict stock price movements
-- **Correlation ≠ Causation**: Positive news does not cause stock prices to rise
-- **No Backtesting**: Predictions have not been validated against historical performance
-- **No Accuracy Metrics**: No precision, recall, F1 score, or win rate provided
-- **Simplified Model**: Uses basic sentiment scoring, not deep learning or advanced ML
-- **No Fundamentals**: Ignores P/E ratios, revenue, earnings, debt, and other financial metrics
-- **No Technical Analysis**: Does not consider RSI, MACD, moving averages, or chart patterns
-- **No Macro Factors**: Ignores Fed rates, GDP, inflation, unemployment, and economic indicators
-- **No Risk Management**: No stop-loss, position sizing, or portfolio optimization
-
-#### Technical Constraints
-- **RAM Budget**: Limited to ~1GB RAM usage (~600 articles max)
-- **CSV Storage**: Not scalable for production; no database
-- **No Authentication**: Anyone can access the API (security risk)
-- **No HTTPS**: Data transmitted in plain text
-- **Rate Limiting**: Generous limits (60 req/min) - not production-ready
-
-### ⚠️ Risk Warning
-
-**TRADING STOCKS INVOLVES SUBSTANTIAL RISK OF LOSS.**
-
-You can lose some or all of your invested capital. Never invest money you cannot afford to lose. Past performance, whether actual or indicated by historical tests of strategies, is **no guarantee of future performance or success**.
-
-### 🔍 Data Accuracy
-
-While we strive for accuracy, we make **NO GUARANTEES** regarding the completeness, accuracy, or timeliness of data. Stock prices, news articles, and sentiment scores may contain errors or be outdated.
-
-**Always verify information from official sources** such as:
-- Company investor relations websites
-- SEC filings (10-K, 10-Q, 8-K)
-- Official stock exchanges (NYSE, NASDAQ)
-- Licensed financial data providers
-
-### 📜 No Liability
-
-By using this application, you agree that the creator, **Basabjeet Deb**, and any contributors are **NOT LIABLE** for any losses, damages, or consequences resulting from your use of this system or reliance on its predictions.
-
-### ✅ Recommended Actions Before Trading
-
-1. **Consult a Professional**: Speak with a licensed financial advisor
-2. **Do Your Own Research**: Use multiple sources and verify all information
-3. **Understand the Risks**: Know what you're getting into
-4. **Never Rely Solely on Automation**: Human judgment is essential
-5. **Start Small**: If you must trade, start with amounts you can afford to lose
-6. **Verify Data**: Cross-check all data with official sources
-7. **Consider Fundamentals**: Look at P/E, revenue, earnings, debt, etc.
-8. **Use Technical Analysis**: Check RSI, MACD, support/resistance levels
-9. **Monitor Macro Factors**: Fed policy, GDP, inflation, etc.
-10. **Have an Exit Strategy**: Know when to cut losses
-
-### 🎯 What This System IS Good For
-
-- ✅ Learning about sentiment analysis techniques
-- ✅ Understanding web scraping with Scrapy
-- ✅ Exploring FastAPI backend development
-- ✅ Building interactive dashboards
-- ✅ Demonstrating data visualization
-- ✅ Portfolio project for software engineering
-- ✅ Research into news-sentiment correlation
-
-### ❌ What This System IS NOT Good For
-
-- ❌ Real money trading
-- ❌ Professional investment advice
-- ❌ Regulatory compliance (SEC, FINRA)
-- ❌ Production-scale deployment
-- ❌ Guaranteed profits
-- ❌ Risk-free investing
-- ❌ Replacing human judgment
+Full interactive docs: **http://localhost:8000/docs**
 
 ---
 
-## 📊 Validation & Transparency
+## Model Details
 
-### Current Metrics (As of April 2026)
+| Property | Value |
+|----------|-------|
+| Algorithm | Ensemble (LightGBM + XGBoost + RandomForest) |
+| Tuning | Optuna (30 trials, maximize AUC) |
+| Features | 23 (sentiment × 12, technical × 6, price × 3, interaction × 2) |
+| Training data | ~2,000 news-covered ticker-day rows |
+| Prediction horizon | Next trading day direction (UP / DOWN) |
+| Conflict resolution | ML vs sentiment disagreement > 0.3 → HOLD |
+| Fallback | Stocks not in panel use sentiment-only probability |
 
-- **Total Predictions**: 166 stocks
-- **Articles Analyzed**: 595 (from 11,096 scraped)
-- **Coverage Rate**: ~96% (stocks with news data)
-- **Average News per Stock**: 3.6 articles
-- **High Confidence Predictions**: ~60% (confidence ≥ 0.7)
-- **Pipeline Runtime**: ~48 seconds
-- **Data Freshness**: Real-time (when pipeline runs)
+**Technical indicators computed per ticker:**
 
-### Methodology
-
-1. **News Collection**: Scrapy spiders scrape 5000+ articles from public sources
-2. **Sentiment Analysis**: VADER sentiment scoring (-1 to +1)
-3. **Relevance Filtering**: Removes irrelevant/low-impact news
-4. **Price Data**: Yahoo Finance API for current prices
-5. **Prediction Score**: Weighted combination of sentiment (70%), price momentum (20%), and news volume (10%)
-6. **Recommendation**: Score mapped to STRONG BUY/BUY/HOLD/SELL/STRONG SELL
-
-### No Backtesting Results
-
-**This system has NOT been backtested** against historical data. We do not know:
-- Historical accuracy rate
-- Win/loss ratio
-- Profit/loss performance
-- Sharpe ratio
-- Maximum drawdown
-- Comparison to buy-and-hold strategy
-
-**Without backtesting, predictions should be treated as experimental.**
+| Indicator | Description |
+|-----------|-------------|
+| RSI(14) | Momentum oscillator — overbought/oversold |
+| MACD histogram | Trend direction & strength |
+| Bollinger Band position | Mean-reversion signal (0=lower, 1=upper) |
+| Volume ratio | Current vs 20-day average volume |
+| Price trend | 5d SMA / 20d SMA ratio |
+| ATR(14) % | Normalised volatility |
 
 ---
 
-## 🔒 Security & Privacy
+## News Sources
 
-### Current Security Status
+All news collected via RSS feeds from reputable financial sources:
 
-⚠️ **This application has known security vulnerabilities:**
+- Google News Finance
+- Yahoo Finance
+- Reuters
+- CNBC
+- MarketWatch
+- Barron's
+- Seeking Alpha
+- The Motley Fool
 
-- No authentication required
-- No HTTPS encryption
-- CORS allows all origins
-- Generous rate limiting
-- Sensitive data in git history
-- No input sanitization
-- CSV file storage (not secure)
-
-**DO NOT use this system with real financial data or in production without addressing these issues.**
-
-See [IMPROVEMENTS.md](IMPROVEMENTS.md) for detailed security recommendations.
+Anti-blocking measures: user-agent rotation, respectful delays, AutoThrottle, retry logic.
 
 ---
 
-## 📞 Contact & Support
+## Data Coverage
 
-**Creator**: Basabjeet Deb  
-**Email**: basabjeet.557@gmail.com  
-**Project**: News Sentiment Based Stock Predictor  
-**License**: Proprietary (See LICENSE file)
-
-For licensing inquiries, bug reports, or questions, contact via email.
-
----
-
-## 📚 Additional Resources
-
-- [IMPROVEMENTS.md](IMPROVEMENTS.md) - Detailed improvement recommendations
-- [CHATBOT_FEATURES.md](CHATBOT_FEATURES.md) - AI chatbot documentation
-- [TEAM_REPORT.md](TEAM_REPORT.md) - Team handoff documentation
-- [UPGRADE_AND_UI_PLAN.md](UPGRADE_AND_UI_PLAN.md) - Performance optimization report
-- [QUICK_START.md](QUICK_START.md) - Quick start guide
-- [LICENSE](LICENSE) - Full license terms
-- [COPYRIGHT_NOTICE.md](COPYRIGHT_NOTICE.md) - Copyright information
+- **Tickers tracked**: 541 (S&P 500 + major stocks across 11 sectors)
+- **Historical cache**: 48 dates (March 9 – April 25, 2026)
+- **News events**: 257,760 articles
+- **Panel rows**: ~8,000 (ticker × trading day with price labels)
+- **Sectors**: Technology, Financial Services, Healthcare, Industrials, Consumer Cyclical, Consumer Defensive, Utilities, Real Estate, Basic Materials, Communication Services, Energy
 
 ---
 
-**© 2026 Basabjeet Deb. All Rights Reserved.**
+## Frontend Features
 
-*This software is provided "as is" without warranty of any kind. Use at your own risk.*
+- **Dashboard** — top BUY/SELL signals, gainers/losers, sentiment overview
+- **AI Predictions** — grid/table view, filter by recommendation/sector/ticker
+- **Live Stocks** — real-time prices, sector filter
+- **News Feed** — 2,000 articles from full historical store, sentiment/impact filters
+- **Analytics** — real model metrics (accuracy, F1, AUC), recommendation distribution, sector sentiment, data quality matrix
+- **Stock Modal** — candlestick chart + volume + SMA20/50 + sentiment overlay, ML probability bar
+- **AI Chatbot** — context-aware stock queries
+
+---
+
+## Disclaimer
+
+> **This tool is for educational and research purposes only.**  
+> It does not constitute financial advice. Predictions are based on news sentiment and technical indicators — not guaranteed to be accurate. Past performance does not predict future results. Always consult a licensed financial advisor before making investment decisions.  
+> The authors accept no liability for any financial losses arising from use of this system.
+
+---
+
+## License
+
+Proprietary — © 2026 Basabjeet Deb (basabjeet.557@gmail.com)  
+All rights reserved. See [LICENSE](LICENSE) for full terms.
