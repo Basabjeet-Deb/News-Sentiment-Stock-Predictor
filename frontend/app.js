@@ -1864,8 +1864,8 @@ async function sendChatMessage() {
     const typingId = addTypingIndicator();
     
     try {
-        // Call chatbot API (served by the same backend)
-        const response = await fetch('http://localhost:8000/api/v1/chat', {
+        // Call LM Studio-powered chatbot API
+        const response = await fetch('http://localhost:8000/api/v1/chat/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1882,16 +1882,27 @@ async function sendChatMessage() {
         // Remove typing indicator
         removeTypingIndicator(typingId);
         
-        // Add bot response
+        // Add bot response (LM Studio or fallback)
         addChatMessage(data.response, 'bot');
         
+        // Announce source for debugging (optional)
+        if (data.source === 'fallback') {
+            console.log('⚠️ Using fallback response (LM Studio unavailable)');
+        } else {
+            console.log('✅ Response from LM Studio');
+        }
+        
     } catch (error) {
+        console.error('Chat error:', error);
+        
         // Remove typing indicator
         removeTypingIndicator(typingId);
         
-        // Fallback response using local data
-        const fallbackResponse = generateFallbackResponse(message);
-        addChatMessage(fallbackResponse, 'bot');
+        // Show error message
+        addChatMessage(
+            'Sorry, I\'m having trouble connecting. Please ensure LM Studio is running on port 1234.',
+            'bot'
+        );
     }
 }
 
@@ -2495,10 +2506,12 @@ async function startChatbotService() {
     try {
         const response = await fetch('http://localhost:8000/api/v1/chat/health');
         if (response.ok) {
+            const data = await response.json();
             console.log('✅ Chatbot service is running');
+            console.log('🤖 LM Studio URL:', data.lm_studio_url);
         }
     } catch (error) {
-        console.log('⚠️ Chatbot service not available, using fallback mode');
+        console.log('⚠️ Chatbot service not available');
     }
 }
 

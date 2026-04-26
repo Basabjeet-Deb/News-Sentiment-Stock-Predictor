@@ -1,0 +1,11 @@
+{
+  "model": "qwen",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Hello, are you working?"
+    }
+  ],
+  "temperature": 0.2,
+  "max_tokens": 20
+}
