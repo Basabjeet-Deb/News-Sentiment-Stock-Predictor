@@ -381,6 +381,7 @@ function renderTopRecommendations(recs) {
             <div class="rec-header">
                 <div class="rec-ticker">${p.ticker}</div>
                 <div class="rec-badge ${p.recommendation.toLowerCase().replace(' ', '-')}">${p.recommendation}</div>
+                <button class="btn-small" title="Add to watchlist" onclick="event.stopPropagation();watchlistGet().includes('${p.ticker}')?watchlistRemove('${p.ticker}'):(watchlistGet().push('${p.ticker}'),watchlistSave(watchlistGet()));this.textContent=watchlistGet().includes('${p.ticker}')?'★':'☆';" style="margin-left:auto;background:none;border:none;font-size:1rem;cursor:pointer;color:#f59e0b;">${'★'}</button>
             </div>
             <div class="rec-company">${p.company_name || p.ticker}</div>
             <div class="rec-metrics">
@@ -470,6 +471,7 @@ async function loadPageData(page) {
     else if (page === 'stocks') loadStocks();
     else if (page === 'news') loadNewsPage();
     else if (page === 'analytics') loadAnalytics();
+    else if (page === 'watchlist') loadWatchlist();
     else if (page === 'training') loadTraining();
 }
 
@@ -808,7 +810,109 @@ async function loadNewsSources() {
     }
 }
 
-// ML Training Page Functions
+// ── Watchlist ─────────────────────────────────────────────────────────────────
+
+const WL_KEY = 'mb_watchlist';
+
+function watchlistGet() {
+    try { return JSON.parse(localStorage.getItem(WL_KEY) || '[]'); } catch(e) { return []; }
+}
+function watchlistSave(list) {
+    localStorage.setItem(WL_KEY, JSON.stringify([...new Set(list.map(t => t.toUpperCase()))]));
+}
+
+function watchlistAdd() {
+    const input = document.getElementById('watchlist-search');
+    const ticker = (input.value || '').trim().toUpperCase();
+    if (!ticker) return;
+    const list = watchlistGet();
+    if (!list.includes(ticker)) {
+        list.push(ticker);
+        watchlistSave(list);
+    }
+    input.value = '';
+    loadWatchlist();
+}
+
+function watchlistRemove(ticker) {
+    watchlistSave(watchlistGet().filter(t => t !== ticker));
+    loadWatchlist();
+}
+
+function watchlistClear() {
+    localStorage.removeItem(WL_KEY);
+    loadWatchlist();
+}
+
+function loadWatchlist() {
+    const list = watchlistGet();
+    const grid = document.getElementById('watchlist-grid');
+    const empty = document.getElementById('watchlist-empty');
+
+    // Allow Enter key to add
+    const input = document.getElementById('watchlist-search');
+    if (input && !input._wlBound) {
+        input.addEventListener('keydown', e => { if (e.key === 'Enter') watchlistAdd(); });
+        input._wlBound = true;
+    }
+
+    if (list.length === 0) {
+        grid.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+    }
+    empty.style.display = 'none';
+
+    // Match against loaded predictions
+    const cards = list.map(ticker => {
+        const p = allPredictions.find(x => x.ticker === ticker);
+        if (!p) {
+            return `
+                <div class="prediction-card" style="opacity:0.6;">
+                    <div class="pred-header">
+                        <div class="pred-ticker">${ticker}</div>
+                        <button class="btn-small" style="margin-left:auto;" onclick="watchlistRemove('${ticker}')">✕</button>
+                    </div>
+                    <div class="pred-company" style="color:var(--text-muted);">No data — run pipeline</div>
+                </div>`;
+        }
+        const sentTxt = p.news_count === 0 || p.avg_sentiment === 0
+            ? 'N/A'
+            : (p.avg_sentiment > 0 ? '+' : '') + (p.avg_sentiment * 100).toFixed(0) + '%';
+        const prob = p.ml_probability_up ?? 0;
+        const pct  = Math.round(prob * 100);
+        const barColor = prob >= 0.6 ? '#10b981' : prob <= 0.4 ? '#ef4444' : '#f59e0b';
+        return `
+            <div class="prediction-card" onclick="showStockDetail('${p.ticker}')">
+                <div class="pred-header">
+                    <div class="pred-ticker">${p.ticker}</div>
+                    <div class="pred-badge ${p.recommendation.toLowerCase().replace(' ','-')}">${p.recommendation}</div>
+                    <button class="btn-small" style="margin-left:auto;" onclick="event.stopPropagation();watchlistRemove('${p.ticker}')">✕</button>
+                </div>
+                <div class="pred-company">${p.company_name || p.ticker}</div>
+                <div class="pred-price">$${p.current_price.toFixed(2)}</div>
+                <div class="pred-change ${p.price_change_percent >= 0 ? 'positive' : 'negative'}">
+                    ${p.price_change_percent >= 0 ? '+' : ''}${p.price_change_percent.toFixed(2)}%
+                </div>
+                <div class="pred-metrics">
+                    <div class="pred-metric"><span>Confidence</span><strong>${(p.confidence*100).toFixed(0)}%</strong></div>
+                    <div class="pred-metric"><span>News</span><strong>${p.news_count}</strong></div>
+                    <div class="pred-metric"><span>Sentiment</span><strong class="${p.avg_sentiment>=0?'positive':'negative'}">${sentTxt}</strong></div>
+                </div>
+                <div style="margin-top:0.5rem;">
+                    <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:#94a3b8;margin-bottom:2px;">
+                        <span>ML Probability</span><span style="color:${barColor};font-weight:700;">${pct}%</span>
+                    </div>
+                    <div style="background:#0f172a;border-radius:4px;height:5px;">
+                        <div style="width:${pct}%;height:100%;background:${barColor};border-radius:4px;"></div>
+                    </div>
+                </div>
+            </div>`;
+    });
+    grid.innerHTML = cards.join('');
+}
+
+// ── ML Training Page Functions ─────────────────────────────────────────────────
 function loadTraining() {
     document.getElementById('training-status-dot').className = 'status-dot';
     document.getElementById('training-status-dot').style.background = 'var(--success)';

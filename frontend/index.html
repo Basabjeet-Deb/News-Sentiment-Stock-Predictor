@@ -43,6 +43,9 @@
                 <a href="#" class="nav-item" data-page="analytics">
                     <span class="icon">📊</span> Analytics
                 </a>
+                <a href="#" class="nav-item" data-page="watchlist">
+                    <span class="icon">⭐</span> Watchlist
+                </a>
                 <a href="#" class="nav-item" data-page="training">
                     <span class="icon">🤖</span> ML Training
                 </a>
@@ -429,6 +432,19 @@
                         </div>
                     </div>
                 </div>
+            </div>
+
+            <!-- Watchlist Page -->
+            <div id="watchlist-page" class="page">
+                <div class="page-controls">
+                    <input type="text" id="watchlist-search" placeholder="Add ticker (e.g. AAPL)..." class="search-input" style="max-width:220px;">
+                    <button class="btn btn-primary" onclick="watchlistAdd()">+ Add</button>
+                    <button class="btn btn-ghost" onclick="watchlistClear()" style="margin-left:auto;">Clear All</button>
+                </div>
+                <div id="watchlist-empty" class="no-data" style="display:none;">
+                    No stocks in your watchlist. Search for a ticker above to add one.
+                </div>
+                <div class="predictions-grid" id="watchlist-grid"></div>
             </div>
 
             <!-- ML Training Page -->
