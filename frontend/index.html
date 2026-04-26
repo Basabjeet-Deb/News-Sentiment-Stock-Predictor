@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
     <div class="app" id="app-root">
         <!-- Mobile scrim -->
         <div class="scrim" id="scrim"></div>
@@ -16,7 +17,7 @@
         <div class="toasts" id="toasts" aria-live="polite" aria-relevant="additions"></div>
 
         <!-- Sidebar -->
-        <aside class="sidebar" id="sidebar">
+        <aside class="sidebar" id="sidebar" role="navigation" aria-label="Main navigation">
             <div class="logo">
                 <div class="brand">
                     <div class="brand-mark">MB</div>
@@ -27,8 +28,8 @@
                 </div>
                 <button class="icon-btn sidebar-close" id="sidebar-close" title="Close menu">✕</button>
             </div>
-            <nav class="nav">
-                <a href="#" class="nav-item active" data-page="dashboard">
+            <nav class="nav" role="navigation" aria-label="Page navigation">
+                <a href="#" class="nav-item active" data-page="dashboard" aria-current="page">
                     <span class="icon">🏠</span> Dashboard
                 </a>
                 <a href="#" class="nav-item" data-page="predictions">
@@ -73,7 +74,7 @@
         </aside>
 
         <!-- Main Content -->
-        <main class="main-content">
+        <main class="main-content" id="main-content" role="main">
             <!-- Header -->
             <header class="header">
                 <div class="header-left">
@@ -84,12 +85,17 @@
                     </div>
                 </div>
                 <div class="header-actions">
-                    <input type="text" id="global-search" placeholder="Search: AAPL, TSLA, MSFT..." class="global-search">
+                    <div class="search-wrap">
+                        <input type="text" id="global-search" placeholder="Search ticker or company..." class="global-search" autocomplete="off" aria-label="Search stocks by ticker or company name">
+                    </div>
                     <div class="header-btns">
-                        <button id="run-pipeline-btn" class="btn btn-primary" title="Run Pipeline (Scrape + Analyze + Predict)">
+                        <button id="theme-toggle-btn" class="icon-btn" title="Toggle theme" aria-label="Toggle light/dark theme">
+                            <span id="theme-icon">🌙</span>
+                        </button>
+                        <button id="run-pipeline-btn" class="btn btn-primary" title="Run Pipeline (Scrape + Analyze + Predict)" aria-label="Run data pipeline">
                             <span class="btn-ic">▶</span><span class="btn-tx">Run</span>
                         </button>
-                        <button id="refresh-btn" class="btn btn-ghost" title="Refresh Data">
+                        <button id="refresh-btn" class="btn btn-ghost" title="Refresh Data" aria-label="Refresh all data">
                             <span class="btn-ic">↻</span><span class="btn-tx">Refresh</span>
                         </button>
                     </div>
@@ -246,7 +252,7 @@
             <div id="predictions-page" class="page">
                 <div class="page-controls">
                     <div class="filters">
-                        <select id="recommendation-filter" class="filter-select">
+                        <select id="recommendation-filter" class="filter-select" aria-label="Filter by recommendation type">
                             <option value="all">All Recommendations</option>
                             <option value="STRONG BUY">🚀 Strong Buy</option>
                             <option value="BUY">📈 Buy</option>
@@ -254,7 +260,9 @@
                             <option value="SELL">📉 Sell</option>
                             <option value="STRONG SELL">⚠️ Strong Sell</option>
                         </select>
-                        <input type="text" id="ticker-search" placeholder="Search ticker..." class="search-input">
+                        <div class="search-wrap">
+                            <input type="text" id="ticker-search" placeholder="Search ticker or company..." class="search-input" autocomplete="off" aria-label="Filter predictions by ticker or company name">
+                        </div>
                     </div>
                     <div class="view-toggle">
                         <button class="view-btn active" data-view="grid">Grid</button>
@@ -289,8 +297,10 @@
             <!-- Stocks Page -->
             <div id="stocks-page" class="page">
                 <div class="page-controls">
-                    <input type="text" id="stock-search" placeholder="Search stocks..." class="search-input">
-                    <select id="sector-filter" class="filter-select">
+                    <div class="search-wrap">
+                        <input type="text" id="stock-search" placeholder="Search ticker or company..." class="search-input" autocomplete="off" aria-label="Filter stocks by ticker or company name">
+                    </div>
+                    <select id="sector-filter" class="filter-select" aria-label="Filter by sector">
                         <option value="all">All Sectors</option>
                     </select>
                 </div>
@@ -318,19 +328,21 @@
             <div id="news-page" class="page">
                 <div class="page-controls">
                     <div class="filters">
-                        <select id="sentiment-filter" class="filter-select">
+                        <select id="sentiment-filter" class="filter-select" aria-label="Filter by sentiment">
                             <option value="all">All Sentiment</option>
                             <option value="positive">🟢 Positive</option>
                             <option value="neutral">⚪ Neutral</option>
                             <option value="negative">🔴 Negative</option>
                         </select>
-                        <select id="impact-filter" class="filter-select">
+                        <select id="impact-filter" class="filter-select" aria-label="Filter by impact level">
                             <option value="all">All Impact</option>
                             <option value="high">High Impact</option>
                             <option value="macro">Macro</option>
                             <option value="medium">Medium</option>
                         </select>
-                        <input type="text" id="news-search" placeholder="Search news..." class="search-input">
+                        <div class="search-wrap">
+                            <input type="text" id="news-search" placeholder="Search by ticker or keyword..." class="search-input" autocomplete="off" aria-label="Filter news by ticker or keyword">
+                        </div>
                     </div>
                 </div>
                 <div id="news-list" class="news-list">
@@ -436,15 +448,17 @@
 
             <!-- Watchlist Page -->
             <div id="watchlist-page" class="page">
-                <div class="page-controls">
-                    <input type="text" id="watchlist-search" placeholder="Add ticker (e.g. AAPL)..." class="search-input" style="max-width:220px;">
-                    <button class="btn btn-primary" onclick="watchlistAdd()">+ Add</button>
-                    <button class="btn btn-ghost" onclick="watchlistClear()" style="margin-left:auto;">Clear All</button>
+                <div class="watchlist-header">
+                    <div class="wl-search-wrap">
+                        <input type="text" id="watchlist-search"
+                               placeholder="Search ticker or company name..."
+                               class="search-input" autocomplete="off" aria-label="Search stocks to add to watchlist">
+                        <div id="wl-dropdown" class="wl-dropdown"></div>
+                    </div>
+                    <span class="watchlist-count" id="watchlist-count">0 stocks</span>
+                    <button class="btn btn-ghost" onclick="watchlistClear()"><span class="btn-tx">Clear All</span></button>
                 </div>
-                <div id="watchlist-empty" class="no-data" style="display:none;">
-                    No stocks in your watchlist. Search for a ticker above to add one.
-                </div>
-                <div class="predictions-grid" id="watchlist-grid"></div>
+                <div id="watchlist-body"></div>
             </div>
 
             <!-- ML Training Page -->

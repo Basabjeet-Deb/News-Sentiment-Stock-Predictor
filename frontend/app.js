@@ -11,17 +11,115 @@ let candlestickSeries = null;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
+    setupTheme();
     setupNavigation();
     setupFilters();
     setupSearch();
     setupStockFilters();
     setupPipelineControls();
     setupShellUI();
+    setupKeyboardShortcuts();
     loadAllData();
     
     // Auto-refresh every 5 minutes
     setInterval(loadAllData, 5 * 60 * 1000);
 });
+
+// Keyboard Shortcuts
+function setupKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+        // Focus search on '/' key
+        if (e.key === '/' && !['INPUT', 'TEXTAREA'].includes(e.target.tagName)) {
+            e.preventDefault();
+            const searchInput = document.getElementById('global-search');
+            searchInput?.focus();
+            announceToScreenReader('Search focused');
+        }
+        
+        // Handle Enter/Space on clickable cards
+        if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('recommendation-card')) {
+            e.preventDefault();
+            e.target.click();
+        }
+        
+        if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('prediction-card')) {
+            e.preventDefault();
+            e.target.click();
+        }
+        
+        if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('stock-item')) {
+            e.preventDefault();
+            e.target.click();
+        }
+    });
+}
+
+// Theme Management
+function setupTheme() {
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    updateThemeIcon(savedTheme);
+    
+    const themeBtn = document.getElementById('theme-toggle-btn');
+    themeBtn?.addEventListener('click', toggleTheme);
+}
+
+function toggleTheme() {
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    const newTheme = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+    updateThemeIcon(newTheme);
+    
+    // Announce theme change for screen readers
+    announceToScreenReader(`Switched to ${newTheme} theme`);
+}
+
+function updateThemeIcon(theme) {
+    const icon = document.getElementById('theme-icon');
+    if (icon) {
+        icon.textContent = theme === 'dark' ? '🌙' : '☀️';
+    }
+}
+
+function announceToScreenReader(message) {
+    const announcement = document.createElement('div');
+    announcement.setAttribute('role', 'status');
+    announcement.setAttribute('aria-live', 'polite');
+    announcement.className = 'sr-only';
+    announcement.textContent = message;
+    document.body.appendChild(announcement);
+    setTimeout(() => announcement.remove(), 1000);
+}
+
+// Skeleton Loaders
+function createSkeletonMetrics(count = 4) {
+    return Array(count).fill(0).map(() => 
+        '<div class="metric-card skeleton skeleton-metric"></div>'
+    ).join('');
+}
+
+function createSkeletonRecommendations(count = 6) {
+    return Array(count).fill(0).map(() => 
+        '<div class="recommendation-card skeleton skeleton-recommendation"></div>'
+    ).join('');
+}
+
+function createSkeletonStockList(count = 5) {
+    return Array(count).fill(0).map(() => `
+        <div class="stock-item skeleton" style="height: 60px;"></div>
+    `).join('');
+}
+
+function createSkeletonNews(count = 10) {
+    return Array(count).fill(0).map(() => `
+        <div class="news-item skeleton" style="height: 100px;"></div>
+    `).join('');
+}
+
+function createSkeletonTable(rows = 10, cols = 7) {
+    return `<tr>${Array(cols).fill('<td><div class="skeleton skeleton-text"></div></td>').join('')}</tr>`.repeat(rows);
+}
 
 function setupShellUI() {
     const sidebar = document.getElementById("sidebar");
@@ -88,9 +186,8 @@ function escapeHtml(s) {
 }
 
 function setupStockFilters() {
-    const search = document.getElementById('stock-search');
+    // sector filter only — search is handled by createAutocomplete in setupSearch
     const sector = document.getElementById('sector-filter');
-    search?.addEventListener('input', () => loadStocks());
     sector?.addEventListener('change', () => loadStocks());
 }
 
@@ -329,6 +426,9 @@ async function loadDashboard() {
         
         renderTopRecommendations(topRecs);
         
+        // Update watchlist star states after rendering
+        setTimeout(updateWatchlistStars, 50);
+        
         // Gainers and losers
         const gainers = allPredictions
             .filter(p => p.price_change_percent > 0)
@@ -381,7 +481,7 @@ function renderTopRecommendations(recs) {
             <div class="rec-header">
                 <div class="rec-ticker">${p.ticker}</div>
                 <div class="rec-badge ${p.recommendation.toLowerCase().replace(' ', '-')}">${p.recommendation}</div>
-                <button class="btn-small" title="Add to watchlist" onclick="event.stopPropagation();watchlistGet().includes('${p.ticker}')?watchlistRemove('${p.ticker}'):(watchlistGet().push('${p.ticker}'),watchlistSave(watchlistGet()));this.textContent=watchlistGet().includes('${p.ticker}')?'★':'☆';" style="margin-left:auto;background:none;border:none;font-size:1rem;cursor:pointer;color:#f59e0b;">${'★'}</button>
+                <button class="wl-star-btn" data-ticker="${p.ticker}" onclick="event.stopPropagation();watchlistToggle('${p.ticker}');updateWatchlistStars();" title="Save to Watchlist">☆</button>
             </div>
             <div class="rec-company">${p.company_name || p.ticker}</div>
             <div class="rec-metrics">
@@ -812,18 +912,20 @@ async function loadNewsSources() {
 
 // ── Watchlist ─────────────────────────────────────────────────────────────────
 
-const WL_KEY = 'mb_watchlist';
+const WL_KEY = 'mb_watchlist_v2';
 
 function watchlistGet() {
     try { return JSON.parse(localStorage.getItem(WL_KEY) || '[]'); } catch(e) { return []; }
 }
+
 function watchlistSave(list) {
     localStorage.setItem(WL_KEY, JSON.stringify([...new Set(list.map(t => t.toUpperCase()))]));
 }
 
 function watchlistAdd() {
     const input = document.getElementById('watchlist-search');
-    const ticker = (input.value || '').trim().toUpperCase();
+    if (!input) return;
+    const ticker = input.value.trim().toUpperCase().replace(/[^A-Z.]/g, '');
     if (!ticker) return;
     const list = watchlistGet();
     if (!list.includes(ticker)) {
@@ -832,84 +934,122 @@ function watchlistAdd() {
     }
     input.value = '';
     loadWatchlist();
+    updateWatchlistStars();
 }
 
 function watchlistRemove(ticker) {
     watchlistSave(watchlistGet().filter(t => t !== ticker));
     loadWatchlist();
+    updateWatchlistStars();
+}
+
+function watchlistToggle(ticker) {
+    const list = watchlistGet();
+    if (list.includes(ticker)) {
+        watchlistSave(list.filter(t => t !== ticker));
+    } else {
+        list.push(ticker);
+        watchlistSave(list);
+    }
+    updateWatchlistStars();
 }
 
 function watchlistClear() {
+    if (!confirm('Remove all stocks from watchlist?')) return;
     localStorage.removeItem(WL_KEY);
     loadWatchlist();
+    updateWatchlistStars();
+}
+
+function updateWatchlistStars() {
+    const list = watchlistGet();
+    document.querySelectorAll('.wl-star-btn').forEach(btn => {
+        const t = btn.dataset.ticker;
+        btn.textContent = list.includes(t) ? '★' : '☆';
+        btn.classList.toggle('active', list.includes(t));
+        btn.title = list.includes(t) ? 'Remove from watchlist' : 'Add to watchlist';
+    });
 }
 
 function loadWatchlist() {
     const list = watchlistGet();
-    const grid = document.getElementById('watchlist-grid');
-    const empty = document.getElementById('watchlist-empty');
+    const body = document.getElementById('watchlist-body');
+    const countEl = document.getElementById('watchlist-count');
+    if (!body) return;
 
-    // Allow Enter key to add
+    // Bind Enter key once
     const input = document.getElementById('watchlist-search');
     if (input && !input._wlBound) {
         input.addEventListener('keydown', e => { if (e.key === 'Enter') watchlistAdd(); });
         input._wlBound = true;
     }
 
+    if (countEl) countEl.textContent = list.length + ' stock' + (list.length !== 1 ? 's' : '');
+
     if (list.length === 0) {
-        grid.innerHTML = '';
-        empty.style.display = 'block';
+        body.innerHTML = `
+            <div class="watchlist-empty-state">
+                <div class="empty-icon">⭐</div>
+                <p>Your watchlist is empty.<br>Type a ticker above and press Enter to add stocks.</p>
+            </div>`;
         return;
     }
-    empty.style.display = 'none';
 
-    // Match against loaded predictions
     const cards = list.map(ticker => {
         const p = allPredictions.find(x => x.ticker === ticker);
+
         if (!p) {
             return `
-                <div class="prediction-card" style="opacity:0.6;">
+                <div class="prediction-card" style="opacity:0.55;">
                     <div class="pred-header">
-                        <div class="pred-ticker">${ticker}</div>
-                        <button class="btn-small" style="margin-left:auto;" onclick="watchlistRemove('${ticker}')">✕</button>
+                        <span class="pred-ticker">${escapeHtml(ticker)}</span>
+                        <span style="color:var(--text-muted);font-size:0.8rem;">No data yet</span>
+                        <button class="btn-small" onclick="watchlistRemove('${escapeHtml(ticker)}')" title="Remove">✕</button>
                     </div>
-                    <div class="pred-company" style="color:var(--text-muted);">No data — run pipeline</div>
+                    <div class="pred-company">Run the pipeline to load data</div>
                 </div>`;
         }
-        const sentTxt = p.news_count === 0 || p.avg_sentiment === 0
+
+        const recClass = p.recommendation.toLowerCase().replace(/ /g, '-');
+        const sentTxt  = (p.news_count === 0 || p.avg_sentiment === 0)
             ? 'N/A'
             : (p.avg_sentiment > 0 ? '+' : '') + (p.avg_sentiment * 100).toFixed(0) + '%';
-        const prob = p.ml_probability_up ?? 0;
-        const pct  = Math.round(prob * 100);
-        const barColor = prob >= 0.6 ? '#10b981' : prob <= 0.4 ? '#ef4444' : '#f59e0b';
+        const prob     = p.ml_probability_up ?? 0;
+        const pct      = Math.round(prob * 100);
+        const barColor = prob >= 0.6 ? '#22c55e' : prob <= 0.4 ? '#f87171' : '#fbbf24';
+
         return `
             <div class="prediction-card" onclick="showStockDetail('${p.ticker}')">
                 <div class="pred-header">
-                    <div class="pred-ticker">${p.ticker}</div>
-                    <div class="pred-badge ${p.recommendation.toLowerCase().replace(' ','-')}">${p.recommendation}</div>
-                    <button class="btn-small" style="margin-left:auto;" onclick="event.stopPropagation();watchlistRemove('${p.ticker}')">✕</button>
+                    <span class="pred-ticker">${p.ticker}</span>
+                    <span class="pred-badge ${recClass}">${p.recommendation}</span>
+                    <button class="btn-small" onclick="event.stopPropagation();watchlistRemove('${p.ticker}')" title="Remove from watchlist">✕</button>
                 </div>
-                <div class="pred-company">${p.company_name || p.ticker}</div>
+                <div class="pred-company">${escapeHtml(p.company_name || p.ticker)}</div>
                 <div class="pred-price">$${p.current_price.toFixed(2)}</div>
                 <div class="pred-change ${p.price_change_percent >= 0 ? 'positive' : 'negative'}">
                     ${p.price_change_percent >= 0 ? '+' : ''}${p.price_change_percent.toFixed(2)}%
                 </div>
                 <div class="pred-metrics">
-                    <div class="pred-metric"><span>Confidence</span><strong>${(p.confidence*100).toFixed(0)}%</strong></div>
+                    <div class="pred-metric"><span>Confidence</span><strong>${(p.confidence * 100).toFixed(0)}%</strong></div>
                     <div class="pred-metric"><span>News</span><strong>${p.news_count}</strong></div>
-                    <div class="pred-metric"><span>Sentiment</span><strong class="${p.avg_sentiment>=0?'positive':'negative'}">${sentTxt}</strong></div>
-                </div>
-                <div style="margin-top:0.5rem;">
-                    <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:#94a3b8;margin-bottom:2px;">
-                        <span>ML Probability</span><span style="color:${barColor};font-weight:700;">${pct}%</span>
+                    <div class="pred-metric"><span>Sentiment</span>
+                        <strong class="${p.avg_sentiment >= 0 ? 'positive' : 'negative'}">${sentTxt}</strong>
                     </div>
-                    <div style="background:#0f172a;border-radius:4px;height:5px;">
-                        <div style="width:${pct}%;height:100%;background:${barColor};border-radius:4px;"></div>
+                </div>
+                <div class="wl-prob-bar">
+                    <div class="wl-prob-label">
+                        <span>ML Probability</span>
+                        <span style="color:${barColor};font-weight:700;">${pct}%</span>
+                    </div>
+                    <div class="wl-prob-track">
+                        <div class="wl-prob-fill" style="width:${pct}%;background:${barColor};"></div>
                     </div>
                 </div>
             </div>`;
     });
-    grid.innerHTML = cards.join('');
+
+    body.innerHTML = '<div class="predictions-grid">' + cards.join('') + '</div>';
 }
 
 // ── ML Training Page Functions ─────────────────────────────────────────────────
@@ -1020,18 +1160,215 @@ function setupFilters() {
     });
 }
 
-function setupSearch() {
-    document.getElementById('global-search').addEventListener('input', (e) => {
-        const query = e.target.value.toLowerCase();
-        if (query.length > 0) {
-            const results = allPredictions.filter(p => 
-                p.ticker.toLowerCase().includes(query) || 
-                (p.company_name && p.company_name.toLowerCase().includes(query))
-            );
-            if (results.length > 0) {
-                showStockDetail(results[0].ticker);
+// ── Shared Autocomplete Engine ────────────────────────────────────────────────
+
+function createAutocomplete(inputId, dropdownId, opts = {}) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+
+    // Create dropdown if not already in DOM
+    let dropdown = dropdownId ? document.getElementById(dropdownId) : null;
+    if (!dropdown) {
+        dropdown = document.createElement('div');
+        dropdown.className = 'search-dropdown';
+        input.parentNode.style.position = 'relative';
+        input.parentNode.appendChild(dropdown);
+    }
+
+    let activeIdx = -1;
+    let lastQuery = '';
+
+    function getMatches(q) {
+        if (!q || q.length < 1) return [];
+        const ql = q.toLowerCase();
+        // Match against predictions + TICKER_NAMES
+        const seen = new Set();
+        const results = [];
+
+        // First: exact ticker prefix
+        (allPredictions || []).forEach(p => {
+            if (seen.has(p.ticker)) return;
+            if (p.ticker.toLowerCase().startsWith(ql)) {
+                seen.add(p.ticker);
+                results.push({ ticker: p.ticker, name: p.company_name || TICKER_NAMES[p.ticker] || p.ticker, pred: p });
             }
+        });
+
+        // Second: company name contains
+        (allPredictions || []).forEach(p => {
+            if (seen.has(p.ticker)) return;
+            const name = (p.company_name || TICKER_NAMES[p.ticker] || '').toLowerCase();
+            if (name.includes(ql)) {
+                seen.add(p.ticker);
+                results.push({ ticker: p.ticker, name: p.company_name || TICKER_NAMES[p.ticker] || p.ticker, pred: p });
+            }
+        });
+
+        // Third: TICKER_NAMES fallback (tickers not in predictions)
+        if (typeof TICKER_NAMES !== 'undefined') {
+            Object.entries(TICKER_NAMES).forEach(([t, n]) => {
+                if (seen.has(t)) return;
+                if (t.toLowerCase().startsWith(ql) || n.toLowerCase().includes(ql)) {
+                    seen.add(t);
+                    results.push({ ticker: t, name: n, pred: null });
+                }
+            });
         }
+
+        return results.slice(0, 8);
+    }
+
+    function renderDropdown(matches, q) {
+        activeIdx = -1;
+        if (!matches.length) {
+            dropdown.innerHTML = '<div class="sd-empty">No results for "' + escapeHtml(q) + '"</div>';
+            dropdown.classList.add('open');
+            return;
+        }
+        dropdown.innerHTML = matches.map((m, i) => {
+            const p = m.pred;
+            const recClass = p ? p.recommendation.toLowerCase().replace(/ /g, '-') : 'no-data';
+            const recLabel = p ? p.recommendation : 'No data';
+            const price    = p ? '$' + p.current_price.toFixed(2) : '';
+            const chg      = p ? (p.price_change_percent >= 0 ? '+' : '') + p.price_change_percent.toFixed(2) + '%' : '';
+            const chgClass = p ? (p.price_change_percent >= 0 ? 'positive' : 'negative') : '';
+            // Highlight matching part in ticker
+            const tHtml = m.ticker.replace(new RegExp('(' + escapeHtml(q) + ')', 'i'), '<strong>$1</strong>');
+            return '<div class="sd-item" data-idx="' + i + '" data-ticker="' + escapeHtml(m.ticker) + '">' +
+                '<span class="sd-ticker">' + tHtml + '</span>' +
+                '<span class="sd-name">' + escapeHtml(m.name) + '</span>' +
+                (price ? '<span class="sd-price">' + price + '</span>' : '') +
+                (chg   ? '<span class="sd-change ' + chgClass + '">' + chg + '</span>' : '') +
+                '<span class="sd-badge ' + recClass + '">' + recLabel + '</span>' +
+                '</div>';
+        }).join('');
+        dropdown.classList.add('open');
+
+        dropdown.querySelectorAll('.sd-item').forEach(item => {
+            item.addEventListener('mousedown', e => {
+                e.preventDefault();
+                const ticker = item.dataset.ticker;
+                if (opts.onSelect) {
+                    opts.onSelect(ticker, item);
+                } else {
+                    showStockDetail(ticker);
+                }
+                input.value = '';
+                closeDropdown();
+            });
+        });
+    }
+
+    function closeDropdown() {
+        dropdown.classList.remove('open');
+        dropdown.innerHTML = '';
+        activeIdx = -1;
+    }
+
+    function navigate(dir) {
+        const items = dropdown.querySelectorAll('.sd-item');
+        if (!items.length) return;
+        items[activeIdx]?.classList.remove('active');
+        activeIdx = Math.max(0, Math.min(items.length - 1, activeIdx + dir));
+        items[activeIdx]?.classList.add('active');
+        items[activeIdx]?.scrollIntoView({ block: 'nearest' });
+    }
+
+    input.addEventListener('input', () => {
+        const q = input.value.trim();
+        lastQuery = q;
+        if (!q) { closeDropdown(); if (opts.onInput) opts.onInput(q); return; }
+        renderDropdown(getMatches(q), q);
+        if (opts.onInput) opts.onInput(q);
+    });
+
+    input.addEventListener('keydown', e => {
+        if (e.key === 'ArrowDown') { e.preventDefault(); navigate(1); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); navigate(-1); }
+        else if (e.key === 'Enter') {
+            e.preventDefault();
+            const active = dropdown.querySelector('.sd-item.active');
+            if (active) {
+                active.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+            } else if (opts.onEnter) {
+                opts.onEnter(input.value.trim().toUpperCase());
+                input.value = '';
+                closeDropdown();
+            }
+        } else if (e.key === 'Escape') {
+            closeDropdown();
+        }
+    });
+
+    input.addEventListener('blur', () => setTimeout(closeDropdown, 150));
+    input.addEventListener('focus', () => {
+        if (input.value.trim()) {
+            renderDropdown(getMatches(input.value.trim()), input.value.trim());
+        }
+    });
+}
+
+function setupSearch() {
+    // Global header search — opens stock modal
+    createAutocomplete('global-search', null, {
+        onSelect: (ticker) => showStockDetail(ticker),
+        onEnter:  (ticker) => { if (ticker) showStockDetail(ticker); },
+    });
+
+    // Predictions page — filters the grid live
+    createAutocomplete('ticker-search', null, {
+        onSelect: (ticker) => {
+            document.getElementById('ticker-search').value = ticker;
+            loadPredictions();
+        },
+        onInput: () => loadPredictions(),
+        onEnter: () => loadPredictions(),
+    });
+
+    // Stocks page — filters the table live
+    createAutocomplete('stock-search', null, {
+        onSelect: (ticker) => {
+            document.getElementById('stock-search').value = ticker;
+            loadStocks();
+        },
+        onInput: () => loadStocks(),
+        onEnter: () => loadStocks(),
+    });
+
+    // News page — filters news live
+    createAutocomplete('news-search', null, {
+        onSelect: (ticker) => {
+            document.getElementById('news-search').value = ticker;
+            renderNewsList(document.getElementById('news-list'),
+                allNews.filter(n => n.ticker === ticker || (n.title || '').toUpperCase().includes(ticker)));
+        },
+        onInput: (q) => {
+            const container = document.getElementById('news-list');
+            if (!container) return;
+            const filtered = q
+                ? allNews.filter(n => {
+                    const t = (n.ticker || '').toLowerCase();
+                    const title = (n.title || '').toLowerCase();
+                    return t.includes(q.toLowerCase()) || title.includes(q.toLowerCase());
+                  })
+                : allNews;
+            renderNewsList(container, filtered);
+        },
+    });
+
+    // Watchlist search — dropdown to add stocks
+    createAutocomplete('watchlist-search', 'wl-dropdown', {
+        onSelect: (ticker) => {
+            watchlistSave([...watchlistGet(), ticker]);
+            loadWatchlist();
+            updateWatchlistStars();
+        },
+        onEnter: (ticker) => {
+            if (!ticker) return;
+            watchlistSave([...watchlistGet(), ticker]);
+            loadWatchlist();
+            updateWatchlistStars();
+        },
     });
 }
 
