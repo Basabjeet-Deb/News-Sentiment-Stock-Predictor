@@ -722,30 +722,39 @@ async function loadAnalytics() {
         ? ((stocksWithNews / preds.length) * 100).toFixed(1) + '%'
         : '--';
 
-    // Pull real model metrics from pipeline status
+    // Pull real model metrics from training API
     let modelAccuracy = '--';
     let modelF1 = '--';
     let modelAUC = '--';
     let freshness = 'Unknown';
     try {
-        const statusRes = await fetch('http://localhost:8000/api/v1/pipeline/status');
-        const statusData = await statusRes.json();
-        const fc = statusData?.last_result?.steps?.forecast;
-        if (fc?.metrics) {
-            modelAccuracy = (fc.metrics.accuracy * 100).toFixed(1) + '%';
-            modelF1       = (fc.metrics.f1 * 100).toFixed(1) + '%';
-            modelAUC      = fc.metrics.auc.toFixed(3);
+        console.log('[Analytics] Fetching metrics from /api/v1/training/metrics...');
+        const metricsRes = await fetch('http://localhost:8000/api/v1/training/metrics');
+        const metricsData = await metricsRes.json();
+        console.log('[Analytics] Metrics response:', metricsData);
+        
+        if (metricsData.status === 'ok' && metricsData.metrics) {
+            modelAccuracy = (metricsData.metrics.accuracy * 100).toFixed(1) + '%';
+            modelF1       = (metricsData.metrics.f1 * 100).toFixed(1) + '%';
+            modelAUC      = metricsData.metrics.auc.toFixed(3);
+            
+            console.log('[Analytics] Parsed metrics:', { modelAccuracy, modelF1, modelAUC });
+            
+            if (metricsData.trained_at) {
+                const dt = new Date(metricsData.trained_at);
+                const diffMin = Math.round((Date.now() - dt) / 60000);
+                freshness = diffMin < 60
+                    ? diffMin + ' min ago'
+                    : dt.toLocaleDateString() + ' ' + dt.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+            }
+        } else {
+            console.warn('[Analytics] Metrics not available:', metricsData);
         }
-        const lastRun = statusData?.last_result?.completed_at || statusData?.last_run;
-        if (lastRun) {
-            const dt = new Date(lastRun);
-            const diffMin = Math.round((Date.now() - dt) / 60000);
-            freshness = diffMin < 60
-                ? diffMin + ' min ago'
-                : dt.toLocaleDateString() + ' ' + dt.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
-        }
-    } catch(e) {}
+    } catch(e) {
+        console.error('[Analytics] Error loading model metrics:', e);
+    }
 
+    console.log('[Analytics] Setting metrics in DOM:', { modelAccuracy, modelF1, modelAUC });
     document.getElementById('model-accuracy').textContent   = modelAccuracy;
     document.getElementById('model-confidence').textContent = (avgConfidence * 100).toFixed(1) + '%';
     document.getElementById('model-precision').textContent  = modelF1;

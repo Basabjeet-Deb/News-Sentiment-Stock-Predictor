@@ -134,6 +134,7 @@ class FinancialNewsSpider(scrapy.Spider):
             'BBC Business', 'NPR', 'The Economist'
         ]
         
+
         for item in response.xpath("//item"):
             title = item.xpath("string(title)").get()
             url = item.xpath("string(link)").get()

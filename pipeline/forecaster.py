@@ -237,9 +237,16 @@ class DailyPanelForecaster:
     # Train
     # ------------------------------------------------------------------
 
-    def train(self, panel_csv: str) -> Dict:
+    def train(self, panel_csv: str, use_balanced: bool = True) -> Dict:
         if joblib is None:
             raise RuntimeError("joblib is required. Install it with: pip install joblib")
+
+        # Use balanced panel if available to prevent overfitting
+        if use_balanced:
+            balanced_path = panel_csv.replace('.csv', '_balanced.csv')
+            if os.path.exists(balanced_path):
+                panel_csv = balanced_path
+                print(f"[FORECASTER] Using balanced panel: {balanced_path}")
 
         df = pd.read_csv(panel_csv, on_bad_lines="skip")
         if df.empty:
@@ -278,6 +285,12 @@ class DailyPanelForecaster:
         X_test = test_df[feats].fillna(0.0)
         y_test = test_df["direction_fwd"].astype(int)
 
+        # Calculate class imbalance for XGBoost
+        n_neg = (y_train == 0).sum()
+        n_pos = (y_train == 1).sum()
+        scale_pos_weight = n_neg / n_pos if n_pos > 0 else 1.0
+        print(f"[FORECASTER] Class balance: {n_neg} negative, {n_pos} positive (scale_pos_weight={scale_pos_weight:.2f})")
+
         # Use a validation slice from train for tuning (last 7 days of train)
         train_dates = sorted(train_df["date_dt"].dt.date.unique())
         if len(train_dates) > 7:
@@ -307,10 +320,10 @@ class DailyPanelForecaster:
             print(f"[FORECASTER] LightGBM failed: {e}")
 
         try:
-            xgb_model = self._build_xgb()
+            xgb_model = self._build_xgb({'scale_pos_weight': scale_pos_weight})
             xgb_model.fit(X_train, y_train)
             models_available.append(("xgb", xgb_model))
-            print("[FORECASTER] XGBoost trained")
+            print("[FORECASTER] XGBoost trained (with scale_pos_weight)")
         except Exception as e:
             print(f"[FORECASTER] XGBoost failed: {e}")
 

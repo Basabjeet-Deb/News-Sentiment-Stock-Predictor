@@ -152,3 +152,33 @@ async def get_training_status():
         "last_collection": training_status["last_collection"],
         "timestamp": datetime.now().isoformat()
     }
+
+@router.get("/metrics")
+async def get_model_metrics():
+    """Get current model performance metrics"""
+    import json
+    
+    try:
+        meta_path = "data/forecaster_meta.json"
+        if not os.path.exists(meta_path):
+            return {
+                "status": "no_model",
+                "message": "No trained model found",
+                "metrics": None
+            }
+        
+        with open(meta_path, 'r') as f:
+            meta = json.load(f)
+        
+        return {
+            "status": "ok",
+            "model": meta.get("model", "Unknown"),
+            "trained_at": meta.get("trained_at"),
+            "metrics": meta.get("metrics", {}),
+            "features": len(meta.get("features", [])),
+            "training_rows": meta.get("rows", 0),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error loading metrics: {str(e)}")

@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AI-powered stock analysis with news sentiment and technical indicators">
+    <title>MarketBrief - AI Stock Analysis Platform</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad:true, theme: 'dark'});</script>
+</head>
+<body>
+    <!-- Animated Particles Background -->
+    <div class="particles">
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <img src="assets/logo.jpg" alt="MarketBrief" class="brand-logo">
+            </div>
+            <div class="nav-links">
+                <a href="#features">Features</a>
+                <a href="#how-it-works">How It Works</a>
+                <a href="#faq">FAQ</a>
+                <a href="../frontend/index.html" class="btn-secondary">Launch App</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h1 class="hero-title">
+                    Turn News Into Trading Signals In Seconds
+                </h1>
+                <p class="hero-subtitle">
+                    AI-powered stock analysis combining 268K+ news articles with technical indicators. Chat with AI, get real-time predictions, and make data-driven decisions without the emotional bias.
+                </p>
+                <div class="hero-cta">
+                    <a href="../frontend/index.html" class="btn-primary">
+                        <i class="fas fa-rocket"></i> Try Live Demo
+                    </a>
+                    <a href="#how-it-works" class="btn-secondary">
+                        <i class="fas fa-play-circle"></i> See How It Works
+                    </a>
+                </div>
+                <p class="hero-note">Free prototype • No signup required • Start analyzing immediately</p>
+                <div class="hero-stats">
+                    <div class="stat">
+                        <div class="stat-number">268K+</div>
+                        <div class="stat-label">Articles Analyzed</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-number">541</div>
+                        <div class="stat-label">Stocks Tracked</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-number">Daily</div>
+                        <div class="stat-label">Automated Updates</div>
+                    </div>
+                </div>
+            </div>
+            <div class="hero-image">
+                <div class="platform-preview">
+                    <div class="browser-chrome">
+                        <div class="browser-dots">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                        <div class="browser-url">localhost:8000</div>
+                    </div>
+                    <div class="preview-content">
+                        <div class="preview-header">
+                            <img src="assets/logo.jpg" alt="MarketBrief" class="preview-logo-img">
+                            <div class="preview-nav">
+                                <span>Dashboard</span>
+                                <span>Analytics</span>
+                                <span>Chat</span>
+                            </div>
+                        </div>
+                        <div class="preview-cards">
+                            <div class="preview-card">
+                                <div class="card-header">
+                                    <span class="ticker">AAPL</span>
+                                    <span class="badge buy">STRONG BUY</span>
+                                </div>
+                                <div class="card-stats">
+                                    <div class="stat-item">
+                                        <span class="label">Confidence</span>
+                                        <span class="value">84.2%</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="label">Sentiment</span>
+                                        <span class="value positive">+0.68</span>
+                                    </div>
+                                </div>
+                                <div class="mini-chart">
+                                    <svg viewBox="0 0 100 30" preserveAspectRatio="none">
+                                        <polyline points="0,25 20,20 40,15 60,10 80,8 100,5" fill="none" stroke="var(--primary)" stroke-width="2"/>
+                                    </svg>
+                                </div>
+                            </div>
+                            <div class="preview-card">
+                                <div class="card-header">
+                                    <span class="ticker">TSLA</span>
+                                    <span class="badge hold">HOLD</span>
+                                </div>
+                                <div class="card-stats">
+                                    <div class="stat-item">
+                                        <span class="label">Confidence</span>
+                                        <span class="value">72.5%</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="label">Sentiment</span>
+                                        <span class="value neutral">+0.12</span>
+                                    </div>
+                                </div>
+                                <div class="mini-chart">
+                                    <svg viewBox="0 0 100 30" preserveAspectRatio="none">
+                                        <polyline points="0,15 20,18 40,14 60,16 80,15 100,17" fill="none" stroke="var(--text-muted)" stroke-width="2"/>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="preview-chat">
+                            <div class="chat-message user">
+                                <span>What are your top picks today?</span>
+                            </div>
+                            <div class="chat-message bot">
+                                <span>Based on sentiment analysis, AAPL shows strong bullish signals...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Problem Section -->
+    <section class="problem">
+        <div class="container">
+            <h2 class="section-title">The Challenge Every Investor Faces</h2>
+            <p class="section-subtitle">Traditional stock research is slow, overwhelming, and prone to emotional bias</p>
+            <div class="problem-grid">
+                <div class="problem-card">
+                    <div class="problem-icon"><i class="fas fa-clock"></i></div>
+                    <h3>Manual Research Takes Hours</h3>
+                    <p>Reading through dozens of articles, earnings reports, and news updates consumes valuable time that could be spent on strategy and execution.</p>
+                </div>
+                <div class="problem-card">
+                    <div class="problem-icon"><i class="fas fa-newspaper"></i></div>
+                    <h3>Information Overload</h3>
+                    <p>Thousands of articles published daily across multiple sources make it impossible to track all market-moving events and sentiment shifts.</p>
+                </div>
+                <div class="problem-card">
+                    <div class="problem-icon"><i class="fas fa-bolt"></i></div>
+                    <h3>Miss Breaking News</h3>
+                    <p>By the time you manually discover important news, the market has already reacted. Speed is critical in capturing opportunities.</p>
+                </div>
+                <div class="problem-card">
+                    <div class="problem-icon"><i class="fas fa-brain"></i></div>
+                    <h3>Emotional Trading Decisions</h3>
+                    <p>Fear and greed cloud judgment. Without quantitative signals, it's easy to buy high and sell low based on gut feelings.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Solution Section -->
+    <section class="solution">
+        <div class="container">
+            <h2 class="section-title">AI-Powered Analysis at Machine Speed</h2>
+            <p class="section-subtitle">MarketBrief automates the entire research process, delivering actionable insights in seconds</p>
+            <div class="solution-content">
+                <div class="solution-text">
+                    <ul class="solution-list">
+                        <li>
+                            <i class="fas fa-check-circle"></i>
+                            <div>
+                                <strong>Analyze 268K+ Articles Instantly</strong>
+                                <p>AI processes news from Reuters, CNBC, MarketWatch, and 5 other major sources in real-time, extracting sentiment signals humans would take weeks to analyze.</p>
+                            </div>
+                        </li>
+                        <li>
+                            <i class="fas fa-check-circle"></i>
+                            <div>
+                                <strong>Combine News + Technical Indicators</strong>
+                                <p>Merge sentiment analysis with RSI, MACD, Bollinger Bands, and volume data for comprehensive multi-factor predictions.</p>
+                            </div>
+                        </li>
+                        <li>
+                            <i class="fas fa-check-circle"></i>
+                            <div>
+                                <strong>Chat With AI for Instant Insights</strong>
+                                <p>Ask questions naturally: "What are the top picks?" or "Tell me about AAPL" — get immediate, context-aware responses powered by local LLM.</p>
+                            </div>
+                        </li>
+                        <li>
+                            <i class="fas fa-check-circle"></i>
+                            <div>
+                                <strong>Daily Automated Predictions</strong>
+                                <p>Wake up to fresh predictions every morning. Ensemble ML model (LightGBM + XGBoost + RandomForest) generates confidence-scored recommendations.</p>
+                            </div>
+                        </li>
+                        <li>
+                            <i class="fas fa-check-circle"></i>
+                            <div>
+                                <strong>Data-Driven, Emotion-Free Signals</strong>
+                                <p>Remove bias from your trading. Every recommendation backed by quantitative data, not gut feelings or market hype.</p>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+                <div class="solution-visual">
+                    <div class="architecture-visual">
+                        <div class="arch-layer">
+                            <div class="arch-box">
+                                <i class="fas fa-rss"></i>
+                                <span>News Sources</span>
+                            </div>
+                        </div>
+                        <div class="arch-arrow"><i class="fas fa-arrow-down"></i></div>
+                        <div class="arch-layer">
+                            <div class="arch-box">
+                                <i class="fas fa-brain"></i>
+                                <span>Sentiment Analysis</span>
+                            </div>
+                        </div>
+                        <div class="arch-arrow"><i class="fas fa-arrow-down"></i></div>
+                        <div class="arch-layer">
+                            <div class="arch-box">
+                                <i class="fas fa-project-diagram"></i>
+                                <span>ML Ensemble</span>
+                            </div>
+                        </div>
+                        <div class="arch-arrow"><i class="fas fa-arrow-down"></i></div>
+                        <div class="arch-layer">
+                            <div class="arch-box">
+                                <i class="fas fa-chart-line"></i>
+                                <span>Predictions</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works Section -->
+    <section id="how-it-works" class="how-it-works">
+        <div class="container">
+            <h2 class="section-title">System Architecture</h2>
+            <p class="section-subtitle">End-to-end pipeline from data ingestion to prediction delivery</p>
+            
+            <!-- Mermaid Diagrams -->
+            <div class="diagrams-container">
+                <!-- Architecture Diagram -->
+                <div class="diagram-card">
+                    <h3>Data Flow Architecture</h3>
+                    <div class="mermaid">
+                        flowchart TD
+                            A[📰 RSS Feeds<br/>Google News · Yahoo Finance<br/>Reuters · CNBC · MarketWatch] -->|Scrapy Spider| B[Raw News JSON<br/>data/gdelt_cache/]
+                            B -->|collect_missing_dates.py| C[news_events.csv<br/>257k+ articles]
+                            C -->|VADER Sentiment| D[Daily Panel<br/>ticker × date features]
+                            E[yfinance<br/>Price History] -->|RSI · MACD · BB · Volume<br/>SMA · ATR| D
+                            D -->|Optuna Tuning| F[Ensemble Model<br/>LightGBM + XGBoost + RF]
+                            F -->|predict_latest| G[ML Predictions<br/>prob_up · recommendation]
+                            G --> H[FastAPI<br/>localhost:8000]
+                            H --> I[Frontend<br/>Your Browser]
+                    </div>
+                </div>
+
+                <!-- ML Pipeline Diagram -->
+                <div class="diagram-card">
+                    <h3>Machine Learning Pipeline</h3>
+                    <div class="mermaid">
+                        flowchart LR
+                            subgraph Features [23 Features]
+                                S[Sentiment<br/>sent_mean · sent_std<br/>rolling 3d · 7d]
+                                T[Technical<br/>RSI14 · MACD · Bollinger<br/>Volume ratio · SMA trend · ATR]
+                                P[Price<br/>return_lag1 · return_lag2<br/>vol_5d]
+                            end
+                            Features --> E[Ensemble<br/>LightGBM × 1.2<br/>XGBoost × 1.0<br/>RandomForest × 0.8]
+                            E --> R[Recommendation<br/>STRONG BUY · BUY · HOLD<br/>SELL · STRONG SELL]
+                    </div>
+                </div>
+            </div>
+
+            <!-- Steps -->
+            <div class="steps-grid">
+                <div class="step">
+                    <div class="step-number">01</div>
+                    <div class="step-icon"><i class="fas fa-database"></i></div>
+                    <h3>Data Ingestion</h3>
+                    <p>Automated scraping of financial news from multiple sources with deduplication and quality filtering.</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">02</div>
+                    <div class="step-icon"><i class="fas fa-brain"></i></div>
+                    <h3>Feature Engineering</h3>
+                    <p>Extract sentiment signals and technical indicators, creating 23 engineered features per ticker-date.</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">03</div>
+                    <div class="step-icon"><i class="fas fa-chart-line"></i></div>
+                    <h3>Prediction Generation</h3>
+                    <p>Ensemble models generate probability scores and actionable buy/sell/hold recommendations.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="features">
+        <div class="container">
+            <h2 class="section-title">Platform Capabilities</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-robot"></i></div>
+                    <h3>AI-Powered Chatbot</h3>
+                    <p>Natural language interface powered by LM Studio for conversational stock analysis and recommendations.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-chart-bar"></i></div>
+                    <h3>Real-Time Analytics</h3>
+                    <p>Live dashboard displaying model performance metrics, prediction confidence, and market sentiment trends.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-newspaper"></i></div>
+                    <h3>News Aggregation</h3>
+                    <p>Continuous monitoring of 8+ major financial news sources with automatic categorization and relevance scoring.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-chart-line"></i></div>
+                    <h3>Technical Analysis</h3>
+                    <p>Integration of RSI, MACD, Bollinger Bands, SMA, ATR, and volume indicators for comprehensive analysis.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-bolt"></i></div>
+                    <h3>High Performance</h3>
+                    <p>FastAPI backend with optimized data pipelines delivering sub-second response times for predictions.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-palette"></i></div>
+                    <h3>Modern Interface</h3>
+                    <p>Responsive design with dark/light themes, accessibility features, and intuitive navigation.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Benefits Section -->
+    <section class="benefits">
+        <div class="container">
+            <h2 class="section-title">Why MarketBrief Wins</h2>
+            <div class="benefits-grid">
+                <div class="benefit">
+                    <div class="benefit-icon"><i class="fas fa-tachometer-alt"></i></div>
+                    <h3>Analyze at Machine Speed</h3>
+                    <p>Process thousands of articles in seconds — what would take analysts weeks to read and synthesize manually.</p>
+                </div>
+                <div class="benefit">
+                    <div class="benefit-icon"><i class="fas fa-bullseye"></i></div>
+                    <h3>Honest Performance Metrics</h3>
+                    <p>49% accuracy, 56.8% F1 score on balanced data. We show real metrics, not marketing hype. Use as one signal in your strategy.</p>
+                </div>
+                <div class="benefit">
+                    <div class="benefit-icon"><i class="fas fa-chart-line"></i></div>
+                    <h3>See Sentiment Before Price Moves</h3>
+                    <p>Catch sentiment trends early. News sentiment often precedes price action — get ahead of the curve with real-time analysis.</p>
+                </div>
+                <div class="benefit">
+                    <div class="benefit-icon"><i class="fas fa-percentage"></i></div>
+                    <h3>Every Prediction Has Confidence</h3>
+                    <p>No black box. Every recommendation includes confidence scores so you can assess risk and make informed decisions.</p>
+                </div>
+                <div class="benefit">
+                    <div class="benefit-icon"><i class="fas fa-universal-access"></i></div>
+                    <h3>WCAG 2.1 Level AA Compliant</h3>
+                    <p>Accessible to everyone. Keyboard navigation, screen reader support, high contrast themes, and skip links included.</p>
+                </div>
+                <div class="benefit">
+                    <div class="benefit-icon"><i class="fas fa-comments"></i></div>
+                    <h3>Ask AI Anything</h3>
+                    <p>Natural language interface powered by local LLM. "What are the top picks?" or "Tell me about NVDA" — get instant, context-aware answers.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Users Section -->
+    <section class="users">
+        <div class="container">
+            <h2 class="section-title">Who Uses MarketBrief</h2>
+            <div class="users-grid">
+                <div class="user-card">
+                    <div class="user-icon"><i class="fas fa-user-tie"></i></div>
+                    <h3>Retail Investors</h3>
+                    <p>Managing personal portfolios and seeking institutional-grade analysis tools without enterprise costs or complexity.</p>
+                </div>
+                <div class="user-card">
+                    <div class="user-icon"><i class="fas fa-bolt"></i></div>
+                    <h3>Day Traders</h3>
+                    <p>Need quick sentiment signals to capture intraday opportunities. Speed and real-time data are critical for execution.</p>
+                </div>
+                <div class="user-card">
+                    <div class="user-icon"><i class="fas fa-chart-pie"></i></div>
+                    <h3>Financial Analysts</h3>
+                    <p>Augmenting fundamental research with quantitative sentiment data. Save hours on manual news monitoring and analysis.</p>
+                </div>
+                <div class="user-card">
+                    <div class="user-icon"><i class="fas fa-newspaper"></i></div>
+                    <h3>Market News Followers</h3>
+                    <p>Anyone who follows financial news and wants to understand sentiment trends without reading hundreds of articles daily.</p>
+                </div>
+                <div class="user-card">
+                    <div class="user-icon"><i class="fas fa-laptop-code"></i></div>
+                    <h3>Tech-Savvy Investors</h3>
+                    <p>Comfortable with AI tools and want to leverage machine learning for data-driven investment decisions.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Proof/Stats Section -->
+    <section class="proof">
+        <div class="container">
+            <h2 class="section-title">Platform Metrics</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-big">268K+</div>
+                    <div class="stat-desc">Financial news articles processed and analyzed</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-big">541</div>
+                    <div class="stat-desc">Securities tracked with daily predictions</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-big">8+</div>
+                    <div class="stat-desc">Major news sources continuously monitored</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-big">23</div>
+                    <div class="stat-desc">Engineered features per prediction</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Documentation Section -->
+    <section class="documentation">
+        <div class="container">
+            <h2 class="section-title">Documentation & Resources</h2>
+            <p class="section-subtitle">Comprehensive guides and technical documentation for developers and researchers</p>
+            
+            <div class="docs-grid">
+                <div class="doc-card">
+                    <div class="doc-icon"><i class="fas fa-book"></i></div>
+                    <h3>Getting Started</h3>
+                    <p>Complete setup guide including dependencies, environment configuration, and first-time deployment.</p>
+                    <a href="https://github.com/Basabjeet-Deb/News-Sentiment-Stock-Predictor#quick-start" target="_blank" class="doc-link">
+                        View Guide <i class="fas fa-arrow-right"></i>
+                    </a>
+                </div>
+                
+                <div class="doc-card">
+                    <div class="doc-icon"><i class="fas fa-code"></i></div>
+                    <h3>API Reference</h3>
+                    <p>Interactive API documentation with endpoint specifications, request/response schemas, and examples.</p>
+                    <a href="http://localhost:8000/docs" target="_blank" class="doc-link">
+                        API Docs <i class="fas fa-arrow-right"></i>
+                    </a>
+                </div>
+                
+                <div class="doc-card">
+                    <div class="doc-icon"><i class="fab fa-github"></i></div>
+                    <h3>Source Code</h3>
+                    <p>Full source code repository with implementation details, model architecture, and contribution guidelines.</p>
+                    <a href="https://github.com/Basabjeet-Deb/News-Sentiment-Stock-Predictor" target="_blank" class="doc-link">
+                        GitHub Repo <i class="fas fa-arrow-right"></i>
+                    </a>
+                </div>
+                
+                <div class="doc-card">
+                    <div class="doc-icon"><i class="fas fa-flask"></i></div>
+                    <h3>Model Details</h3>
+                    <p>Technical specifications of the ensemble ML model, feature engineering, and performance metrics.</p>
+                    <a href="https://github.com/Basabjeet-Deb/News-Sentiment-Stock-Predictor#model-details" target="_blank" class="doc-link">
+                        Learn More <i class="fas fa-arrow-right"></i>
+                    </a>
+                </div>
+                
+                <div class="doc-card">
+                    <div class="doc-icon"><i class="fas fa-cogs"></i></div>
+                    <h3>Pipeline Architecture</h3>
+                    <p>Detailed breakdown of data collection, processing, training, and prediction generation workflows.</p>
+                    <a href="https://github.com/Basabjeet-Deb/News-Sentiment-Stock-Predictor#architecture" target="_blank" class="doc-link">
+                        View Architecture <i class="fas fa-arrow-right"></i>
+                    </a>
+                </div>
+                
+                <div class="doc-card">
+                    <div class="doc-icon"><i class="fas fa-shield-alt"></i></div>
+                    <h3>Security & Config</h3>
+                    <p>Environment variable setup, API token management, and security best practices.</p>
+                    <a href="https://github.com/Basabjeet-Deb/News-Sentiment-Stock-Predictor#security--environment-variables" target="_blank" class="doc-link">
+                        Security Guide <i class="fas fa-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+
+            <div class="tech-stack">
+                <h3>Technology Stack</h3>
+                <div class="tech-badges">
+                    <span class="tech-badge"><i class="fab fa-python"></i> Python 3.9+</span>
+                    <span class="tech-badge"><i class="fas fa-server"></i> FastAPI</span>
+                    <span class="tech-badge"><i class="fas fa-brain"></i> LightGBM</span>
+                    <span class="tech-badge"><i class="fas fa-project-diagram"></i> XGBoost</span>
+                    <span class="tech-badge"><i class="fas fa-chart-line"></i> scikit-learn</span>
+                    <span class="tech-badge"><i class="fas fa-robot"></i> LM Studio</span>
+                    <span class="tech-badge"><i class="fab fa-js"></i> Vanilla JavaScript</span>
+                    <span class="tech-badge"><i class="fas fa-spider"></i> Scrapy</span>
+                    <span class="tech-badge"><i class="fas fa-database"></i> Pandas</span>
+                    <span class="tech-badge"><i class="fas fa-chart-bar"></i> yfinance</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ Section -->
+    <section id="faq" class="faq">
+        <div class="container">
+            <h2 class="section-title">Frequently Asked Questions</h2>
+            <div class="faq-list">
+                <div class="faq-item">
+                    <h3 class="faq-question"><i class="fas fa-question-circle"></i> How accurate are the predictions?</h3>
+                    <p class="faq-answer">Our ensemble model achieves 49% accuracy with 56.8% F1 score on balanced test data. We believe in honest metrics, not marketing hype. This is NOT financial advice — use predictions as one signal in your overall strategy. Performance varies by market conditions.</p>
+                </div>
+                <div class="faq-item">
+                    <h3 class="faq-question"><i class="fas fa-question-circle"></i> What data sources do you use?</h3>
+                    <p class="faq-answer">We aggregate news from 8 major sources: Reuters, CNBC, MarketWatch, Yahoo Finance, Google News, Barron's, Seeking Alpha, and The Motley Fool. Price data comes from yfinance API with real-time updates. All sources are publicly available and reputable.</p>
+                </div>
+                <div class="faq-item">
+                    <h3 class="faq-question"><i class="fas fa-question-circle"></i> Is my data secure?</h3>
+                    <p class="faq-answer">Yes. The AI chatbot uses a local LLM (LM Studio) running on your machine — no data is sent to external servers. All processing happens locally. We don't collect, store, or share your queries or trading activity.</p>
+                </div>
+                <div class="faq-item">
+                    <h3 class="faq-question"><i class="fas fa-question-circle"></i> How often is data updated?</h3>
+                    <p class="faq-answer">News is scraped continuously throughout trading hours. Predictions are regenerated daily after market close with the latest data. You wake up to fresh predictions every morning based on overnight news and updated technical indicators.</p>
+                </div>
+                <div class="faq-item">
+                    <h3 class="faq-question"><i class="fas fa-question-circle"></i> Do I need technical knowledge to use this?</h3>
+                    <p class="faq-answer">No. You can chat with the AI naturally ("What are the top picks?") or browse the visual dashboard. No coding required. However, understanding basic stock concepts (sentiment, technical indicators) helps interpret results better.</p>
+                </div>
+                <div class="faq-item">
+                    <h3 class="faq-question"><i class="fas fa-question-circle"></i> Is this financial advice?</h3>
+                    <p class="faq-answer">Absolutely not. MarketBrief is an educational research tool. All predictions are for informational purposes only and should not be considered financial advice. Always consult a licensed financial advisor before making investment decisions. Past performance does not guarantee future results.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Final CTA Section -->
+    <section class="final-cta">
+        <div class="container">
+            <h2>Start Analyzing Stocks With AI</h2>
+            <p>Free prototype • No signup required • Try immediately</p>
+            <a href="../frontend/index.html" class="btn-primary btn-large">
+                <i class="fas fa-rocket"></i> Try Live Demo Now
+            </a>
+            <p class="cta-note">Or explore the code on <a href="https://github.com/Basabjeet-Deb/News-Sentiment-Stock-Predictor" target="_blank" style="color: var(--primary); text-decoration: underline;">GitHub</a> • Read the <a href="https://github.com/Basabjeet-Deb/News-Sentiment-Stock-Predictor#readme" target="_blank" style="color: var(--primary); text-decoration: underline;">Documentation</a></p>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <div class="footer-logo-section">
+                        <img src="assets/logo.jpg" alt="MarketBrief" class="footer-logo-img">
+                    </div>
+                    <p class="footer-tagline">AI-Powered Stock Intelligence Platform</p>
+                    <p class="footer-description">Combining news sentiment analysis with technical indicators to deliver actionable stock predictions.</p>
+                    
+                    <div class="author-info">
+                        <h4>Created by</h4>
+                        <p class="author-name">Basabjeet Deb</p>
+                        <div class="author-links">
+                            <a href="https://github.com/Basabjeet-Deb" target="_blank" rel="noopener noreferrer">
+                                <i class="fab fa-github"></i> GitHub
+                            </a>
+                            <a href="mailto:basabjeet.557@gmail.com">
+                                <i class="fas fa-envelope"></i> Email
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="footer-links">
+                    <div class="footer-column">
+                        <h4>Platform</h4>
+                        <a href="#features">Capabilities</a>
+                        <a href="#how-it-works">Architecture</a>
+                        <a href="../frontend/index.html">Launch App</a>
+                        <a href="http://localhost:8000/docs" target="_blank">API Docs</a>
+                    </div>
+                    <div class="footer-column">
+                        <h4>Resources</h4>
+                        <a href="#faq">FAQ</a>
+                        <a href="https://github.com/Basabjeet-Deb/News-Sentiment-Stock-Predictor" target="_blank">GitHub Repository</a>
+                        <a href="https://github.com/Basabjeet-Deb/News-Sentiment-Stock-Predictor#readme" target="_blank">Documentation</a>
+                        <a href="https://github.com/Basabjeet-Deb/News-Sentiment-Stock-Predictor/blob/main/SETUP.md" target="_blank">Setup Guide</a>
+                    </div>
+                    <div class="footer-column">
+                        <h4>Legal</h4>
+                        <a href="https://github.com/Basabjeet-Deb/News-Sentiment-Stock-Predictor/blob/main/LICENSE" target="_blank">License</a>
+                        <a href="#disclaimer">Risk Disclaimer</a>
+                        <p class="copyright-notice">© 2026 Basabjeet Deb<br/>All rights reserved</p>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <div class="footer-bottom-content">
+                    <p class="copyright">© 2026 MarketBrief by Basabjeet Deb. Proprietary Software.</p>
+                    <div class="footer-social">
+                        <a href="https://github.com/Basabjeet-Deb/News-Sentiment-Stock-Predictor" target="_blank" rel="noopener noreferrer" title="GitHub Repository">
+                            <i class="fab fa-github"></i>
+                        </a>
+                        <a href="mailto:basabjeet.557@gmail.com" title="Email Contact">
+                            <i class="fas fa-envelope"></i>
+                        </a>
+                    </div>
+                </div>
+                <p id="disclaimer" class="disclaimer">
+                    <strong>Disclaimer:</strong> This tool is for educational and research purposes only. It does not constitute financial advice. 
+                    Predictions are based on news sentiment and technical indicators — not guaranteed to be accurate. 
+                    Past performance does not predict future results. Always consult a licensed financial advisor before making investment decisions. 
+                    The author accepts no liability for any financial losses arising from use of this system.
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
